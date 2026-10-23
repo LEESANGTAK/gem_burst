@@ -6,9 +6,16 @@
 class GemSoundEngine {
   constructor() {
     this.ctx = null;
-    this.volume = 0.7;
+    this.sfxVolume = 0.8;
+    this.bgmVolume = 0.5;
+    this.sfxMuted = false;
+    this.bgmMuted = false;
+    this.volume = 0.8; // 하위 호환용
     this.muted = false;
     this.initialized = false;
+    this.isBGMPlaying = false;
+    this.bgmTimer = null;
+    this.bgmGain = null;
   }
 
   init() {
@@ -16,6 +23,9 @@ class GemSoundEngine {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioContext();
+      this.bgmGain = this.ctx.createGain();
+      this.bgmGain.gain.setValueAtTime(this.bgmMuted ? 0 : this.bgmVolume, this.ctx.currentTime);
+      this.bgmGain.connect(this.ctx.destination);
       this.initialized = true;
     } catch (e) {
       console.warn("Web Audio API not supported", e);
@@ -30,12 +40,96 @@ class GemSoundEngine {
   }
 
   setVolume(vol) {
-    this.volume = Math.max(0, Math.min(1, vol));
+    this.setSFXVolume(vol);
+  }
+
+  setSFXVolume(vol) {
+    this.sfxVolume = Math.max(0, Math.min(1, vol));
+    this.volume = this.sfxVolume;
+  }
+
+  setBGMVolume(vol) {
+    this.bgmVolume = Math.max(0, Math.min(1, vol));
+    if (this.ctx && this.bgmGain) {
+      const gainVal = this.bgmMuted ? 0 : this.bgmVolume;
+      this.bgmGain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+    }
   }
 
   toggleMute() {
-    this.muted = !this.muted;
-    return this.muted;
+    return this.toggleSFXMute();
+  }
+
+  toggleSFXMute() {
+    this.sfxMuted = !this.sfxMuted;
+    this.muted = this.sfxMuted;
+    return this.sfxMuted;
+  }
+
+  toggleBGMMute() {
+    this.bgmMuted = !this.bgmMuted;
+    if (this.ctx && this.bgmGain) {
+      const gainVal = this.bgmMuted ? 0 : this.bgmVolume;
+      this.bgmGain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+    }
+    return this.bgmMuted;
+  }
+
+  /**
+   * 🌌 몽환적인 우주 크리스탈 앰비언트 BGM 신시사이저 루프
+   */
+  startBGM() {
+    if (this.isBGMPlaying) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+    this.isBGMPlaying = true;
+
+    const chords = [
+      [261.63, 329.63, 392.00, 493.88], // Cmaj7
+      [220.00, 261.63, 329.63, 392.00], // Am7
+      [174.61, 220.00, 261.63, 329.63], // Fmaj7
+      [196.00, 246.94, 293.66, 392.00]  // G7
+    ];
+    let step = 0;
+
+    const playAmbientChord = () => {
+      if (!this.isBGMPlaying || !this.ctx) return;
+      const currentChord = chords[step % chords.length];
+      const now = this.ctx.currentTime;
+
+      // 4개의 톤으로 감미로운 아르페지오 패드 형성
+      currentChord.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * 0.5, now); // 옥타브 다운 따뜻한 톤
+
+        const noteTime = now + idx * 0.45;
+        gain.gain.setValueAtTime(0, noteTime);
+        gain.gain.linearRampToValueAtTime(0.08, noteTime + 0.8);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 3.8);
+
+        osc.connect(gain);
+        gain.connect(this.bgmGain);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 4.0);
+      });
+
+      step++;
+      this.bgmTimer = setTimeout(playAmbientChord, 3800);
+    };
+
+    playAmbientChord();
+  }
+
+  stopBGM() {
+    this.isBGMPlaying = false;
+    if (this.bgmTimer) {
+      clearTimeout(this.bgmTimer);
+      this.bgmTimer = null;
+    }
   }
 
   /**

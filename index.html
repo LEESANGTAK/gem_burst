@@ -13,7 +13,7 @@
 
   <!-- 최상단 헤더 -->
   <header>
-    <div class="logo-area">
+    <div class="logo-area" onclick="switchMainTab('menu')" style="cursor: pointer;">
       <div class="logo-icon">💎</div>
       <div class="logo-title">
         <h1>PRISM CROSS</h1>
@@ -23,14 +23,20 @@
 
     <!-- 네비게이션 탭 -->
     <nav class="nav-tabs">
-      <button class="nav-tab-btn active" id="tabGame" onclick="switchMainTab('game')">
-        🎮 젬 퍼즐 플레이
+      <button class="nav-tab-btn active" id="tabMenu" onclick="switchMainTab('menu')">
+        🏠 메인 메뉴
+      </button>
+      <button class="nav-tab-btn" id="tabGame" onclick="switchMainTab('game')">
+        🎮 퍼즐 플레이
+      </button>
+      <button class="nav-tab-btn" id="tabSettings" onclick="openSettingsModal()">
+        ⚙️ 환경 설정
       </button>
       <button class="nav-tab-btn" id="tabHowTo" onclick="switchMainTab('howto')">
         💡 플레이 팁 & 룰
       </button>
       <button class="nav-tab-btn" id="tabLegal" onclick="switchMainTab('legal')">
-        ⚖️ 저작권 컴플라이언스
+        ⚖️ 컴플라이언스
       </button>
     </nav>
   </header>
@@ -38,14 +44,61 @@
   <!-- 메인 콘텐츠 영역 -->
   <main>
 
+    <!-- [뷰 0] 웅장한 메인 메뉴 씬 (Main Menu Scene) -->
+    <section class="game-view active" id="viewMenu">
+      <div class="menu-hero-card">
+        <div class="hero-gem-badge">💎</div>
+        <h1 class="hero-title">PRISM CROSS</h1>
+        <p class="hero-subtitle">Gem Burst Puzzle</p>
+        <div class="hero-desc">
+          <span>🌌 무한한 우주 공간에서 펼쳐지는 짜릿한 십자 레이저 젬 매칭 액션!</span>
+        </div>
+
+        <div class="menu-action-grid">
+          <button class="menu-btn primary" onclick="openModeSelectModal()">
+            <span class="btn-icon">🚀</span>
+            <div class="btn-text">
+              <strong id="txtMenuPlay">게임 시작 (Play)</strong>
+              <span id="txtMenuPlaySub">6가지 다채로운 모드 선택 및 도전</span>
+            </div>
+          </button>
+
+          <button class="menu-btn secondary" onclick="openSettingsModal()">
+            <span class="btn-icon">⚙️</span>
+            <div class="btn-text">
+              <strong id="txtMenuOptions">환경 설정 (Options)</strong>
+              <span id="txtMenuOptionsSub">언어, 사운드 BGM/SFX, 가이드 조준선</span>
+            </div>
+          </button>
+
+          <button class="menu-btn secondary" onclick="switchMainTab('howto')">
+            <span class="btn-icon">💡</span>
+            <div class="btn-text">
+              <strong id="txtMenuHowTo">게임 룰 & 공략 (How to Play)</strong>
+              <span id="txtMenuHowToSub">십자 매칭 규칙과 콤보 비법</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="hero-footer-badges">
+          <span class="f-badge">✨ 10종 3D 엠보스 타일</span>
+          <span class="f-badge">📱 모바일 반응형 완벽 대응</span>
+          <span class="f-badge">⚡ 60FPS 초고속 물리 엔진</span>
+        </div>
+      </div>
+    </section>
+
     <!-- [뷰 1] 메인 젬 퍼즐 게임 화면 -->
-    <section class="game-view active" id="viewGame">
+    <section class="game-view" id="viewGame">
       <div class="remake-container">
         
         <!-- 게임 서브 모드 선택 -->
         <div class="remake-submodes">
           <button class="submode-btn active" id="submodeSpecial" onclick="setGameMode('special')">
-            🌟 특수 젬 크러시 (3x3폭탄&체인번개)
+            🌟 특수 젬 크러시 (3x3폭탄)
+          </button>
+          <button class="submode-btn" id="submodeMega" onclick="setGameMode('mega')" style="background: rgba(147, 51, 234, 0.2); border-color: rgba(147, 51, 234, 0.4);">
+            🌌 메가 버스트 (300타일/1.5x)
           </button>
           <button class="submode-btn" id="submodeArcade" onclick="setGameMode('arcade')">
             ⚡ 아케이드 피버 (120s)
@@ -68,32 +121,41 @@
 
         <!-- 게임 조작 툴바 -->
         <div class="remake-toolbar">
+          <button class="tool-btn" onclick="switchMainTab('menu')">
+            🏠 메뉴
+          </button>
+          <button class="tool-btn" onclick="openModeSelectModal()">
+            🎮 모드 변경
+          </button>
+          <button class="tool-btn" onclick="openSettingsModal()">
+            ⚙️ 설정
+          </button>
           <button class="tool-btn active" id="btnSmartGuide" onclick="toggleSmartGuide()">
-            🎯 스마트 레이저 조준선
+            🎯 조준선
           </button>
           <button class="tool-btn active" id="btnHoverPreview" onclick="toggleHoverPreview()">
-            ✨ 젬 매칭 프리뷰
+            ✨ 프리뷰
           </button>
           <button class="tool-btn" id="btnColorBlind" onclick="toggleColorBlind()">
-            👁️ 크리스탈 룬 (접근성)
+            👁️ 룬
           </button>
           <button class="tool-btn" id="btnHint" onclick="triggerHint()">
-            💡 힌트 (Hint)
+            💡 힌트
           </button>
           <button class="tool-btn" id="btnShuffle" onclick="triggerShuffle()">
-            🔀 스마트 셔플
+            🔀 셔플
           </button>
           <button class="tool-btn" id="btnUndo" onclick="triggerUndo()" style="display: none;">
-            ↩️ 되돌리기 (Undo)
+            ↩️ 되돌리기
           </button>
           <button class="tool-btn action-btn" onclick="restartGame()">
-            🔄 새 게임 시작
+            🔄 재시작
           </button>
         </div>
 
-        <!-- 캔버스 영역 -->
+        <!-- 캔버스 영역 (2배 대형 타일 및 모바일 적응형 해상도 1260 x 880) -->
         <div class="canvas-wrapper">
-          <canvas id="gameCanvas" width="800" height="600"></canvas>
+          <canvas id="gameCanvas" width="1260" height="880"></canvas>
         </div>
 
       </div>
@@ -110,7 +172,6 @@
         <h3>2. 특수 보석 (Special Gems)</h3>
         <ul>
           <li><strong>💣 3x3 범위 폭탄 젬 (Area Bomb):</strong> 매칭 소거 시 폭탄 주변 3x3 영역(주변 8칸)의 모든 보석을 시원하게 날려버리는 범위 대폭발을 일으킵니다!</li>
-          <li><strong>🌈 무지개 와일드 젬 (Wild Prism):</strong> 어떤 색상의 타일과도 자유롭게 매칭되는 만능 조커 타일입니다.</li>
           <li><strong>⚡ 체인 라이트닝 젬 (Lightning Spark):</strong> 소거 시 주변 보석들로 눈부신 체인 번개(Lightning Arc)를 연결 발사하여 연쇄 감전 소거합니다.</li>
           <li><strong>⏰ 타임 보너스 젬 (Time Plus):</strong> 매칭 시 남은 제한 시간을 즉시 +5초 연장해 줍니다.</li>
         </ul>
@@ -123,8 +184,11 @@
           <li><strong>젠(Zen) 모드:</strong> 시간에 쫓기지 않고 편안하게 두뇌 퍼즐을 즐기고 싶을 때는 젠 모드를 선택하세요. 무제한 시간과 힌트, 되돌리기(Undo)가 지원됩니다.</li>
         </ul>
 
-        <div style="margin-top: 24px; text-align: center;">
-          <button class="modal-btn primary" onclick="switchMainTab('game')" style="max-width: 240px; margin: 0 auto;">
+        <div style="margin-top: 28px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+          <button class="modal-btn secondary" onclick="switchMainTab('menu')" style="max-width: 200px;">
+            메인 메뉴로 이동 🏠
+          </button>
+          <button class="modal-btn primary" onclick="switchMainTab('game')" style="max-width: 240px;">
             지금 보석 매칭하러 가기 💎
           </button>
         </div>
@@ -186,6 +250,141 @@
     </section>
 
   </main>
+
+  <!-- 게임 모드 선택 모달 (Mode Select Modal) -->
+  <div class="modal-overlay" id="modeSelectModal">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h2 id="txtModeModalTitle">🎮 게임 모드 선택 (Game Modes)</h2>
+        <p id="txtModeModalSub" style="color: #94A3B8; font-size: 0.9rem;">플레이하고 싶은 퍼즐 모드를 선택하세요.</p>
+      </div>
+
+      <div class="modes-card-grid">
+        <div class="mode-card featured" onclick="selectAndStartMode('special')">
+          <div class="mode-card-badge">인기 추천 🔥</div>
+          <div class="mode-card-icon">🌟</div>
+          <h3 id="modeTitleSpecial">특수 젬 크러시</h3>
+          <p id="modeDescSpecial">3x3 폭탄, 체인 번개, 타임 보너스가 연쇄 폭발하는 화려한 모드</p>
+          <div class="mode-specs"><span>23x15</span><span>200 타일</span><span>46px 대형</span><span>120초</span></div>
+        </div>
+
+        <div class="mode-card mega" onclick="selectAndStartMode('mega')">
+          <div class="mode-card-badge new">NEW 1.5x 🌌</div>
+          <div class="mode-card-icon">🪐</div>
+          <h3 id="modeTitleMega">메가 버스트 (300타일)</h3>
+          <p id="modeDescMega">1.5배 타일 대형 맵! 넉넉한 180초 동안 300개의 보석을 소거하는 메가 볼륨</p>
+          <div class="mode-specs"><span>28x18 대형맵</span><span>300 타일</span><span>38px</span><span>180초</span></div>
+        </div>
+
+        <div class="mode-card" onclick="selectAndStartMode('arcade')">
+          <div class="mode-card-icon">⚡</div>
+          <h3 id="modeTitleArcade">아케이드 피버</h3>
+          <p id="modeDescArcade">콤보 게이지 100% 충전 시 6초간 초신성 불꽃놀이 피버 발동!</p>
+          <div class="mode-specs"><span>23x15</span><span>200 타일</span><span>피버 연쇄</span><span>120초</span></div>
+        </div>
+
+        <div class="mode-card" onclick="selectAndStartMode('zen')">
+          <div class="mode-card-icon">🧘</div>
+          <h3 id="modeTitleZen">젠 / 힐링 모드</h3>
+          <p id="modeDescZen">시간 제한 없이 무제한 되돌리기(Undo)와 함께 느긋하게 즐기는 힐링</p>
+          <div class="mode-specs"><span>23x15</span><span>200 타일</span><span>무제한</span><span>되돌리기</span></div>
+        </div>
+
+        <div class="mode-card" onclick="selectAndStartMode('classic')">
+          <div class="mode-card-icon">🎯</div>
+          <h3 id="modeTitleClassic">클래식 타임어택</h3>
+          <p id="modeDescClassic">특수 기믹 없이 순수한 십자 매칭 실력만으로 120초간 최고 점수 승부</p>
+          <div class="mode-specs"><span>23x15</span><span>200 타일</span><span>정통 룰</span><span>120초</span></div>
+        </div>
+
+        <div class="mode-card" onclick="selectAndStartMode('mini')">
+          <div class="mode-card-icon">🧩</div>
+          <h3 id="modeTitleMini">미니 퀘스트 (모바일)</h3>
+          <p id="modeDescMini">64px 초대형 타일로 한 손 플레이에 최적화된 60초 쾌속 스피드런</p>
+          <div class="mode-specs"><span>15x10</span><span>90 타일</span><span>64px 초대형</span><span>60초</span></div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 20px;">
+        <button class="modal-btn secondary" onclick="closeModeSelectModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 환경 설정 (옵션) 모달 (Settings Modal) -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card settings-card">
+      <div class="modal-header">
+        <h2 id="txtSettingsTitle">⚙️ 환경 설정 (Options)</h2>
+        <p id="txtSettingsSub" style="color: #94A3B8; font-size: 0.9rem;">언어, 사운드, 조작 가이드를 취향에 맞게 설정하세요.</p>
+      </div>
+
+      <div class="settings-content">
+        <!-- 1. 언어 설정 -->
+        <div class="setting-group">
+          <div class="setting-title">
+            <span id="txtOptLanguage">🌐 언어 설정 (Language)</span>
+          </div>
+          <div class="lang-switch-buttons">
+            <button class="lang-btn active" id="btnLangKo" onclick="setLanguage('ko')">🇰🇷 한국어</button>
+            <button class="lang-btn" id="btnLangEn" onclick="setLanguage('en')">🇺🇸 English</button>
+          </div>
+        </div>
+
+        <!-- 2. 사운드 볼륨 제어 -->
+        <div class="setting-group">
+          <div class="setting-title">
+            <span id="txtOptSound">🔊 사운드 설정 (Sound & Music)</span>
+          </div>
+          <div class="sound-controls">
+            <div class="sound-slider-row">
+              <span class="sound-label" id="txtOptBGM">🎵 배경음 (BGM)</span>
+              <input type="range" id="bgmVolumeSlider" min="0" max="100" value="50" oninput="onBGMVolumeChange(this.value)">
+              <span class="vol-text" id="bgmVolText">50%</span>
+            </div>
+            <div class="sound-slider-row">
+              <span class="sound-label" id="txtOptSFX">🔊 효과음 (SFX)</span>
+              <input type="range" id="sfxVolumeSlider" min="0" max="100" value="80" oninput="onSFXVolumeChange(this.value)">
+              <span class="vol-text" id="sfxVolText">80%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 가이드 및 접근성 토글 -->
+        <div class="setting-group">
+          <div class="setting-title">
+            <span id="txtOptGuides">🎯 게임 가이드 및 연출</span>
+          </div>
+          <div class="toggle-list">
+            <label class="toggle-row">
+              <span class="toggle-label" id="txtOptSmartGuide">🎯 스마트 레이저 조준선</span>
+              <input type="checkbox" id="chkSmartGuide" checked onchange="onSettingToggle('smartGuide', this.checked)">
+              <span class="switch-ui"></span>
+            </label>
+            <label class="toggle-row">
+              <span class="toggle-label" id="txtOptHoverPreview">✨ 젬 매칭 프리뷰</span>
+              <input type="checkbox" id="chkHoverPreview" checked onchange="onSettingToggle('hoverPreview', this.checked)">
+              <span class="switch-ui"></span>
+            </label>
+            <label class="toggle-row">
+              <span class="toggle-label" id="txtOptColorBlind">👁️ 크리스탈 룬 (접근성 기호)</span>
+              <input type="checkbox" id="chkColorBlind" onchange="onSettingToggle('colorBlind', this.checked)">
+              <span class="switch-ui"></span>
+            </label>
+            <label class="toggle-row">
+              <span class="toggle-label" id="txtOptScreenShake">📳 화면 흔들림 효과 (Screen Shake)</span>
+              <input type="checkbox" id="chkScreenShake" checked onchange="onSettingToggle('screenShake', this.checked)">
+              <span class="switch-ui"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 24px;">
+        <button class="modal-btn primary" onclick="closeSettingsModal()">완료</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 게임 결과 통계 모달 -->
   <div class="modal-overlay" id="resultModal">

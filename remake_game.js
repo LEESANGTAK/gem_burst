@@ -2,7 +2,7 @@
  * Prism Cross: Gem Burst 게임 엔진 (Ultimate Edition)
  * - 캔디크러시 스타일의 다채로운 10종 기하학 보석 실루엣 (원, 하트, 별, 다이아몬드, 꽃 등)
  * - 유리/크리스탈이 산산조각 박살나 쏟아지는 리얼 파편 물리 엔진 (Shatter Physics)
- * - 특수 기믹 보석 (폭탄 젬, 레인보우 와일드, 라이트닝, 타임 젬)
+ * - 특수 기믹 보석 (3x3 폭탄 젬, 체인 라이트닝, 타임 젬)
  * - 슈팅 게임처럼 쾌감 넘치는 피버 모드 & 콤보 시스템
  */
 
@@ -11,20 +11,23 @@ class PrismCrossEngine {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
 
-    this.width = 800;
-    this.height = 600;
+    // 2배 대형 타일 및 모바일/태블릿 적응형 캔버스 기본 해상도 (1260 x 880)
+    this.width = 1260;
+    this.height = 880;
     this.canvas.width = this.width;
     this.canvas.height = this.height;
 
     // 모드 설정 ('arcade', 'special', 'zen', 'classic', 'mini')
     this.mode = 'special'; // 기본값을 화려한 특수 젬 모드로!
 
+    // 2배 확대된 타일 규격 (기존 cellSpacing 26 -> 50으로 2배 확대, mini는 36 -> 68, mega는 300타일 28x18 대형 맵)
     this.modesConfig = {
-      special: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 120, cellSpacing: 26, hasSpecialGems: true },
-      arcade: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 120, cellSpacing: 26, hasSpecialGems: false },
-      classic: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 120, cellSpacing: 26, hasSpecialGems: false },
-      zen: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 0, cellSpacing: 26, hasSpecialGems: true },
-      mini: { cols: 15, rows: 10, numGems: 6, gemsPerType: 15, timeLimit: 60, cellSpacing: 36, hasSpecialGems: true }
+      special: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 120, cellSpacing: 50, hasSpecialGems: true },
+      mega: { cols: 28, rows: 18, numGems: 10, gemsPerType: 30, timeLimit: 180, cellSpacing: 42, hasSpecialGems: true }, // 1.5배 타일 대형 맵 (300타일!)
+      arcade: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 120, cellSpacing: 50, hasSpecialGems: false },
+      classic: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 120, cellSpacing: 50, hasSpecialGems: false },
+      zen: { cols: 23, rows: 15, numGems: 10, gemsPerType: 20, timeLimit: 0, cellSpacing: 50, hasSpecialGems: true },
+      mini: { cols: 15, rows: 10, numGems: 6, gemsPerType: 15, timeLimit: 60, cellSpacing: 68, hasSpecialGems: true }
     };
 
     // 10종 프리즘 큐브 타일 컬러 스펙 (상단/좌측 하이라이트 + 중심 메인 + 우하단 쉐이딩)
@@ -135,14 +138,14 @@ class PrismCrossEngine {
     this.cols = cfg.cols;
     this.rows = cfg.rows;
     this.cellSpacing = cfg.cellSpacing;
-    this.gemSize = this.cellSpacing - 3;
+    this.gemSize = this.cellSpacing - 4; // 2배 커진 타일 크기 (cellSpacing 50 기준 46px)
     this.timeLimit = cfg.timeLimit;
     this.timeRemain = cfg.timeLimit;
 
     const boardW = this.cols * this.cellSpacing;
     const boardH = this.rows * this.cellSpacing;
     this.offsetX = Math.floor((this.width - boardW) / 2);
-    this.offsetY = Math.floor((this.height - boardH) / 2) + 20;
+    this.offsetY = Math.floor((this.height - boardH) / 2) + 24;
 
     this.score = 0;
     this.combo = 0;
@@ -174,17 +177,16 @@ class PrismCrossEngine {
     };
 
     // 보석 생성
-    // 특수 보석 타입: 'bomb'(십자폭탄), 'wild'(무지개와일드), 'lightning'(번개), 'time'(+5초)
+    // 특수 보석 타입: 'bomb'(3x3 폭탄), 'lightning'(체인 번개), 'time'(+5초)
     const pool = [];
     for (let c = 0; c < cfg.numGems; c++) {
       for (let i = 0; i < cfg.gemsPerType; i++) {
         let special = null;
         if (cfg.hasSpecialGems) {
           const rand = Math.random();
-          if (rand < 0.03) special = 'bomb';
-          else if (rand < 0.05) special = 'wild';
-          else if (rand < 0.07) special = 'lightning';
-          else if (rand < 0.09) special = 'time';
+          if (rand < 0.04) special = 'bomb';         // 4% 3x3 범위 폭발 폭탄
+          else if (rand < 0.08) special = 'lightning'; // 4% 체인 라이트닝
+          else if (rand < 0.11) special = 'time';      // 3% 타임 보너스 (+5s)
         }
         pool.push({ type: c, special: special });
       }
@@ -261,14 +263,14 @@ class PrismCrossEngine {
   }
 
   /**
-   * 💎 [초고속 60fps] 10종 쉐이딩 타일 오프스크린 캔버스 캐시
+   * 💎 [초고속 60fps] 10종 쉐이딩 타일 고해상도 오프스크린 캔버스 캐시 (128x128 Retina)
    */
   initGemCache() {
     this.gemCache = [];
-    const cacheSize = 64;
+    const cacheSize = 128; // 고밀도 모바일 디스플레이 및 2배 대형 타일을 위한 128px 고화질 베이크
     const cx = cacheSize / 2;
     const cy = cacheSize / 2;
-    const drawSize = 58;
+    const drawSize = 118;
 
     this.gemSpecs.forEach((spec) => {
       const oc = document.createElement('canvas');
@@ -502,6 +504,15 @@ class PrismCrossEngine {
       };
     };
 
+    // 모바일 웹 오디오 최초 터치 제스처 언락 (iOS Safari / Android Chrome)
+    const unlockAudio = () => {
+      if (window.soundEngine) {
+        window.soundEngine.ensureContext();
+      }
+    };
+    window.addEventListener('touchstart', unlockAudio, { passive: true, once: true });
+    window.addEventListener('click', unlockAudio, { passive: true, once: true });
+
     this.canvas.addEventListener('mousemove', (e) => {
       const p = getPos(e);
       this.handleMouseMove(p.x, p.y);
@@ -516,6 +527,7 @@ class PrismCrossEngine {
       this.handleClick(p.x, p.y);
     });
 
+    // 모바일 터치 이벤트 핸들링 (즉각 탭 반응 및 터치 스와이프 조준)
     this.canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (e.touches.length > 0) {
@@ -525,6 +537,19 @@ class PrismCrossEngine {
         this.handleClick(p.x, p.y);
       }
     }, { passive: false });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        const p = getPos(touch);
+        this.handleMouseMove(p.x, p.y);
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchend', () => {
+      this.hoverCell = null;
+    });
   }
 
   handleMouseMove(mx, my) {
@@ -600,28 +625,20 @@ class PrismCrossEngine {
       return { top, down, left, right, matchedGems: allFound, isFeverMatch: true };
     }
 
-    // 일반 판정 (와일드 젬 포함)
+    // 일반 매칭 판정 (동일 색상 2개 이상)
     const dirs = [top, down, left, right].filter(x => x !== null);
     const matchedGems = [];
 
-    // 와일드 젬이 포함되어 있는지 확인
-    const hasWild = dirs.some(d => d.data.special === 'wild');
+    const groups = {};
+    dirs.forEach(d => {
+      const type = d.data.type;
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(d);
+    });
 
-    if (hasWild && dirs.length >= 2) {
-      // 와일드가 있으면 걸린 모든 보석이 매칭 성공!
-      matchedGems.push(...dirs);
-    } else {
-      const groups = {};
-      dirs.forEach(d => {
-        const type = d.data.type;
-        if (!groups[type]) groups[type] = [];
-        groups[type].push(d);
-      });
-
-      for (const t in groups) {
-        if (groups[t].length >= 2) {
-          matchedGems.push(...groups[t]);
-        }
+    for (const t in groups) {
+      if (groups[t].length >= 2) {
+        matchedGems.push(...groups[t]);
       }
     }
 
@@ -777,8 +794,8 @@ class PrismCrossEngine {
         }
       }
 
-      // 피버 게이지 충전 (밸런스 정상화: 너무 자주 발동되지 않도록 기존의 1/4로 하향 조정)
-      if (!this.isFever && (this.mode === 'arcade' || this.mode === 'special')) {
+      // 피버 게이지 충전 (아케이드, 특수 젬, 메가 버스트 모드 지원)
+      if (!this.isFever && (this.mode === 'arcade' || this.mode === 'special' || this.mode === 'mega')) {
         const feverGain = count * 1.5 + this.combo * 0.8;
         this.feverGauge = Math.min(100, this.feverGauge + feverGain);
         if (this.feverGauge >= 100) {
@@ -878,7 +895,7 @@ class PrismCrossEngine {
       x1, y1, x2, y2,
       color: this.isFever ? "#FF007F" : spec.color,
       alpha: 1.0,
-      width: this.isFever ? 10 : 6,
+      width: this.isFever ? 16 : 10,
       life: 0.3
     });
   }
@@ -956,7 +973,7 @@ class PrismCrossEngine {
       coreColor: "#FFFFFF",
       life: 0.28,
       maxLife: 0.28,
-      width: 1.8 // [가느다란 선 형태의 얇은 번개]
+      width: 2.8 // [2배 타일에 맞춘 번개 선]
     });
   }
 
@@ -970,19 +987,19 @@ class PrismCrossEngine {
     const spec = this.gemSpecs[gemType];
 
     // 5~7개의 다각형 크리스탈 파편 생성 (빛나는 Trail 꼬리 탑재)
-    const shardCount = 5 + Math.floor(Math.random() * 3);
+    const shardCount = 6 + Math.floor(Math.random() * 3);
     for (let i = 0; i < shardCount; i++) {
       const angle = (i / shardCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-      const speed = 100 + Math.random() * 160;
+      const speed = 140 + Math.random() * 200;
       
       this.shards.push({
         x: cx,
         y: cy,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 100,
+        vy: Math.sin(angle) * speed - 120,
         rotation: Math.random() * Math.PI * 2,
         vrot: (Math.random() - 0.5) * 12,
-        size: 3.5 + Math.random() * 5,
+        size: 6 + Math.random() * 8, // 2배 커진 타일에 맞춘 파편 크기
         points: this.generateShardPoly(),
         color: i % 3 === 0 ? spec.light : (i % 3 === 1 ? spec.color : spec.dark),
         trailColor: spec.light || spec.color,
@@ -1569,7 +1586,8 @@ class PrismCrossEngine {
     ctx.fillStyle = "#38BDF8";
     ctx.font = "bold 12px sans-serif";
     const modeLabels = {
-      special: "SPECIAL GEMS (BOMBS & WILDS)",
+      special: "SPECIAL GEMS (BOMBS & LIGHTNING)",
+      mega: "MEGA BURST 1.5X (300 GEMS / 28x18)",
       arcade: "ARCADE FEVER",
       zen: "ZEN HEALING (NO TIME LIMIT)",
       classic: "CLASSIC 120S",
@@ -1625,7 +1643,7 @@ class PrismCrossEngine {
     }
 
     // 피버 모드 바
-    if (this.mode === 'arcade' || this.mode === 'special') {
+    if (this.mode === 'arcade' || this.mode === 'special' || this.mode === 'mega') {
       const fvW = 240;
       const fvH = 10;
       const fvX = (this.width - fvW) / 2;
@@ -1676,9 +1694,9 @@ class PrismCrossEngine {
     const boardW = this.cols * this.cellSpacing;
     const boardH = this.rows * this.cellSpacing;
 
-    // 반투명 다크 크리스탈 글래스 보드
+    // 반투명 다크 크리스탈 글래스 보드 (투명도를 2배 높여 우주 배경이 은은하게 투과)
     ctx.save();
-    ctx.fillStyle = "rgba(8, 14, 28, 0.72)";
+    ctx.fillStyle = "rgba(8, 14, 28, 0.36)";
     ctx.fillRect(this.offsetX, this.offsetY, boardW, boardH);
 
     // 보드 외곽 네온 림
@@ -1730,24 +1748,24 @@ class PrismCrossEngine {
       ctx.stroke();
 
       ctx.strokeStyle = "#FFE600";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 18, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.fillStyle = "#FFE600";
-      ctx.font = "900 12px sans-serif";
+      ctx.font = "900 14px sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText("🔥 FEVER BURST", cx + 16, cy - 8);
+      ctx.fillText("🔥 FEVER BURST", cx + 24, cy - 8);
 
       // 매치 대상 보석 하이라이트 (불꽃 에너지 프레임)
       scan.matchedGems.forEach(item => {
         const tx = this.offsetX + item.c * this.cellSpacing + this.cellSpacing / 2;
         const ty = this.offsetY + item.r * this.cellSpacing + this.cellSpacing / 2;
         ctx.strokeStyle = "#FFE600";
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3.0;
         const pulseBox = 1.0 + Math.sin(time * 0.01) * 0.1;
-        const boxSize = (this.gemSize + 4) * pulseBox;
+        const boxSize = (this.gemSize + 6) * pulseBox;
         ctx.strokeRect(tx - boxSize / 2, ty - boxSize / 2, boxSize, boxSize);
       });
       ctx.restore();
@@ -1758,8 +1776,8 @@ class PrismCrossEngine {
     const lineColor = canMatch ? "rgba(52, 211, 153, 0.75)" : "rgba(255, 255, 255, 0.25)";
     ctx.save();
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth = 1.8;
-    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([6, 6]);
 
     ctx.beginPath();
     ctx.moveTo(this.offsetX, cy);
@@ -1770,9 +1788,9 @@ class PrismCrossEngine {
     ctx.setLineDash([]);
 
     ctx.strokeStyle = canMatch ? "#34D399" : "rgba(255, 255, 255, 0.6)";
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 2.6;
     ctx.beginPath();
-    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
     ctx.stroke();
 
     // 매칭 가능한 보석 회전 네온 링 표시 및 특수 기믹 프리뷰
@@ -1855,61 +1873,101 @@ class PrismCrossEngine {
           if (img) {
             ctx.drawImage(img, cx - halfSize, cy - halfSize, this.gemSize, this.gemSize);
           } else {
-            this.drawCandyGem(ctx, cx, cy, this.gemSize, cell.type, cell.special);
+            this.drawCandyGem(ctx, cx, cy, this.gemSize, cell.type, null);
           }
 
-          // 2. 특수 보석 아이콘 (타일 색상과 사각형 형태가 확실히 보이도록 컴팩트 뱃지 & 외곽 네온 림)
+          // 2. 특수 보석 아이콘 (타일 색상 위에 묻히지 않도록 선명한 고대비 엠블럼 & 네온 림)
           if (cell.special) {
-            ctx.save();
             const time = performance.now();
-            const pulse = 0.8 + Math.sin(time * 0.008) * 0.2;
-            const sHalf = this.gemSize * 0.44;
-
-            // 1) 외곽 특수 엠블럼 네온 림 (타일 색상을 가리지 않고 모서리를 강조)
-            ctx.lineWidth = 1.6;
-            if (cell.special === 'bomb') {
-              ctx.strokeStyle = `rgba(255, 61, 0, ${pulse})`;
-              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-              ctx.stroke();
-            } else if (cell.special === 'lightning') {
-              ctx.strokeStyle = `rgba(0, 229, 255, ${pulse})`;
-              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-              ctx.stroke();
-            } else if (cell.special === 'time') {
-              ctx.strokeStyle = `rgba(255, 214, 0, ${pulse})`;
-              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-              ctx.stroke();
-            } else if (cell.special === 'wild') {
-              const hue = (time * 0.15) % 360;
-              ctx.strokeStyle = `hsla(${hue}, 100%, 65%, ${pulse})`;
-              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-              ctx.stroke();
-            }
-
-            // 2) 중심 컴팩트 반투명 뱃지
-            ctx.fillStyle = "rgba(10, 15, 30, 0.42)";
-            ctx.beginPath();
-            ctx.arc(cx, cy, this.gemSize * 0.28, 0, Math.PI * 2);
-            ctx.fill();
-
-            // 3) 소형화된 아이콘 텍스트 (타일 색상이 70% 이상 노출되도록 조정)
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.font = `bold ${Math.floor(this.gemSize * 0.48)}px sans-serif`;
-            let icon = "";
-            if (cell.special === 'bomb') icon = "💣";
-            else if (cell.special === 'wild') icon = "🌈";
-            else if (cell.special === 'lightning') icon = "⚡";
-            else if (cell.special === 'time') icon = "⏰";
-            ctx.fillText(icon, cx, cy);
-
-            ctx.restore();
+            const pulse = 0.85 + Math.sin(time * 0.008) * 0.15;
+            this.renderSpecialBadge(ctx, cx, cy, this.gemSize, cell.special, pulse);
           } else if (this.colorBlindMode) {
             this.renderRuneSymbol(ctx, cell.type, cx, cy, this.gemSize * 0.58);
           }
         }
       }
     }
+  }
+
+  /**
+   * 🌟 특수 보석 뱃지 고대비 선명 렌더링 (폭탄 💣, 번개 ⚡, 시간 ⏰)
+   * 타일 색상에 묻히지 않도록 짙은 다크 실드 + 듀얼 발광 네온 링 + 대형 고선명 아이콘 적용
+   */
+  renderSpecialBadge(ctx, cx, cy, size, special, pulse = 1.0) {
+    const conf = {
+      bomb: {
+        icon: "💣",
+        neonColor: "#FF3344",
+        glowColor: "rgba(255, 51, 68, 0.85)",
+        darkBg: "rgba(14, 17, 28, 0.96)",
+        ringColor: "#FFAA00"
+      },
+      lightning: {
+        icon: "⚡",
+        neonColor: "#00E5FF",
+        glowColor: "rgba(0, 229, 255, 0.9)",
+        darkBg: "rgba(8, 20, 36, 0.96)",
+        ringColor: "#E0F7FA"
+      },
+      time: {
+        icon: "⏰",
+        neonColor: "#FFD700",
+        glowColor: "rgba(255, 215, 0, 0.9)",
+        darkBg: "rgba(24, 20, 8, 0.96)",
+        ringColor: "#FFF9C4"
+      }
+    }[special];
+
+    if (!conf) return;
+
+    ctx.save();
+
+    const sHalf = size * 0.44;
+
+    // 1) 외곽 고선명 네온 테두리 (타일 경계 강조)
+    ctx.lineWidth = 2.0;
+    ctx.strokeStyle = conf.neonColor;
+    ctx.shadowColor = conf.glowColor;
+    ctx.shadowBlur = 8 * pulse;
+    this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+    ctx.stroke();
+
+    // 2) 중심 고대비 다크 엠블럼 실드 (타일 색상 완벽 차단하여 가독성 100% 확보)
+    const badgeR = size * 0.35;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = conf.darkBg;
+    ctx.beginPath();
+    ctx.arc(cx, cy, badgeR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3) 뱃지 외곽 발광 네온 링
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = conf.neonColor;
+    ctx.shadowColor = conf.glowColor;
+    ctx.shadowBlur = 7 * pulse;
+    ctx.beginPath();
+    ctx.arc(cx, cy, badgeR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 4) 뱃지 내부 메탈릭 보조 링
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = conf.ringColor;
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(1, badgeR - 2.5), 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 5) 대형 아이콘 텍스트 렌더링 (또렷하고 큼직하게 중앙 배치)
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `bold ${Math.round(size * 0.54)}px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(conf.icon, cx, cy + 1);
+
+    ctx.restore();
   }
 
   drawCandyGem(ctx, cx, cy, size, gemType, special) {
@@ -1919,44 +1977,9 @@ class PrismCrossEngine {
     // 1. 미니멀 3D 쉐이딩 타일 렌더링
     this.drawShadedTile(ctx, cx, cy, size, spec);
 
-    // 2. 특수 보석 아이콘 표시 (컴팩트 뱃지 & 외곽 네온 림)
+    // 2. 특수 보석 아이콘 표시 (단독 렌더링 시)
     if (special) {
-      const sHalf = size * 0.44;
-      ctx.lineWidth = 1.6;
-      if (special === 'bomb') {
-        ctx.strokeStyle = "#FF3D00";
-        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-        ctx.stroke();
-      } else if (special === 'lightning') {
-        ctx.strokeStyle = "#00E5FF";
-        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-        ctx.stroke();
-      } else if (special === 'time') {
-        ctx.strokeStyle = "#FFD600";
-        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-        ctx.stroke();
-      } else if (special === 'wild') {
-        ctx.strokeStyle = "#E040FB";
-        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = "rgba(10, 15, 30, 0.42)";
-      ctx.beginPath();
-      ctx.arc(cx, cy, size * 0.28, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = `bold ${Math.floor(size * 0.48)}px sans-serif`;
-
-      let icon = "";
-      if (special === 'bomb') icon = "💣";
-      else if (special === 'wild') icon = "🌈";
-      else if (special === 'lightning') icon = "⚡";
-      else if (special === 'time') icon = "⏰";
-
-      ctx.fillText(icon, cx, cy);
+      this.renderSpecialBadge(ctx, cx, cy, size, special, 1.0);
     } else if (this.colorBlindMode) {
       this.renderRuneSymbol(ctx, gemType, cx, cy, size * 0.58);
     }
@@ -2494,7 +2517,7 @@ class PrismCrossEngine {
     if (this.isFever) {
       ctx.fillText("🔥 [FEVER BURST 발동 중] 십자 방향에 걸리는 모든 보석을 쓸어 담습니다!", 28, bottomY);
     } else {
-      ctx.fillText("💎 팁: 💣폭탄, 🌈와일드, ⚡번개, ⏰타임 젬을 매칭하면 특수 능력이 발동됩니다!", 28, bottomY);
+      ctx.fillText("💎 팁: 💣폭탄(3x3 폭발), ⚡번개(체인 감전), ⏰타임(+5초) 젬을 매칭하면 강력한 특수 효과가 발동됩니다!", 28, bottomY);
     }
   }
 
