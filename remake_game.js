@@ -27,18 +27,18 @@ class PrismCrossEngine {
       mini: { cols: 15, rows: 10, numGems: 6, gemsPerType: 15, timeLimit: 60, cellSpacing: 36, hasSpecialGems: true }
     };
 
-    // 10종 프리즘 캔디/보석 고유 실루엣 & 컬러 스펙
+    // 10종 프리즘 큐브 타일 컬러 스펙 (상단/좌측 하이라이트 + 중심 메인 + 우하단 쉐이딩)
     this.gemSpecs = [
-      { name: "사파이어 오브", color: "#1E88E5", dark: "#0D47A1", light: "#90CAF9", shape: "circle" }, // 원형
-      { name: "토파즈 다이아", color: "#FB8C00", dark: "#E65100", light: "#FFE0B2", shape: "rhombus" }, // 마름모
-      { name: "루비 하트", color: "#E53935", dark: "#B71C1C", light: "#FFCDD2", shape: "heart" }, // 하트
-      { name: "시트린 트라이", color: "#FDD835", dark: "#F57F17", light: "#FFF9C4", shape: "triangle" }, // 삼각형
-      { name: "에메랄드 큐브", color: "#43A047", dark: "#1B5E20", light: "#C8E6C9", shape: "square" }, // 정사각형
-      { name: "다이아 스타", color: "#ECEFF1", dark: "#78909C", light: "#FFFFFF", shape: "star" }, // 5각 별
-      { name: "아쿠아 드롭", color: "#00ACC1", dark: "#006064", light: "#B2EBF2", shape: "drop" }, // 물방울
-      { name: "아메 펜타곤", color: "#8E24AA", dark: "#4A148C", light: "#E1BEE7", shape: "pentagon" }, // 5각형
-      { name: "페리 헥사곤", color: "#7CB342", dark: "#33691E", light: "#DCEDC8", shape: "hexagon" }, // 6각형
-      { name: "로즈 클로버", color: "#D81B60", dark: "#880E4F", light: "#F8BBD0", shape: "flower" } // 꽃/클로버
+      { name: "사파이어 블루", color: "#2563EB", dark: "#1D4ED8", light: "#60A5FA", shape: "square" }, // 0: 로열 블루
+      { name: "토파즈 오렌지", color: "#F97316", dark: "#D94610", light: "#FBA170", shape: "square" }, // 1: 감귤 주황 (샘플 1:1 일치)
+      { name: "루비 레드", color: "#DC2626", dark: "#B91C1C", light: "#F87171", shape: "square" },     // 2: 강렬한 비비드 리얼 레드
+      { name: "시트린 옐로우", color: "#FACC15", dark: "#CA8A04", light: "#FDE047", shape: "square" }, // 3: 밝은 레몬 노랑
+      { name: "에메랄드 그린", color: "#047857", dark: "#065F46", light: "#10B981", shape: "square" }, // 4: 짙고 묵직한 딥 에메랄드 초록
+      { name: "다이아 화이트", color: "#E2E8F0", dark: "#CBD5E1", light: "#FFFFFF", shape: "square" }, // 5: 은백색 다이아몬드
+      { name: "아쿠아 시안", color: "#06B6D4", dark: "#0891B2", light: "#38BDF8", shape: "square" },   // 6: 청량한 민트 시안
+      { name: "아메지스트 퍼플", color: "#7C3AED", dark: "#6D28D9", light: "#A78BFA", shape: "square" }, // 7: 쿨톤 로열 바이올렛 보라
+      { name: "페리도트 라임", color: "#8EE000", dark: "#65A30D", light: "#B4F82A", shape: "square" }, // 8: 눈부시게 밝은 형광 네온 라임 연두
+      { name: "로즈 핑크", color: "#F68ABF", dark: "#DB2777", light: "#FBCFE8", shape: "square" }     // 9: 부드럽고 화사한 로즈 핑크
     ];
 
     // 게임 상태
@@ -217,12 +217,58 @@ class PrismCrossEngine {
    * - 게임 시작 시 고해상도 64x64 캔버스에 각면 컷, 그라데이션, 베벨, 하이라이트를 1회 사전 렌더링
    * - 렌더 루프에서는 drawImage 텍스처 복사로 대체하여 CPU 부하를 98% 제거!
    */
+  /**
+   * 🔲 미니멀 3D 엠보스 타일 렌더러 (상단/좌측 하이라이트 + 중심 메인 + 우측/하단 쉐이딩)
+   * - 상단 & 좌측: 부드러운 톤온톤 밝은 하이라이트 (spec.light)
+   * - 중심부 본체: 순수 단색 메인 컬러 (spec.color)
+   * - 우측 & 하단: 묵직한 입체 쉐이딩 (spec.dark)
+   */
+  drawShadedTile(ctx, cx, cy, size, spec) {
+    const half = size / 2;
+    const x = cx - half;
+    const y = cy - half;
+    const r = Math.max(2, Math.round(size * 0.08));     // 둥근 모서리 반경
+    const hl = Math.max(1.5, Math.round(size * 0.11)); // 상단/좌측 하이라이트 두께 (~11%)
+    const sh = Math.max(2, Math.round(size * 0.17));   // 우측/하단 쉐이딩 두께 (~17%)
+
+    ctx.save();
+
+    // 1. 타일 전체 둥근 사각형 클리핑 영역 설정 (모서리 넘침 방지)
+    this.drawRoundedRectPath(ctx, x, y, size, size, r);
+    ctx.clip();
+
+    // 2. 중심 메인 컬러 채우기 (spec.color)
+    ctx.fillStyle = spec.color;
+    ctx.fillRect(x, y, size, size);
+
+    // 3. 우측 및 하단 어두운 쉐이딩 (spec.dark)
+    ctx.fillStyle = spec.dark;
+    ctx.fillRect(x + size - sh, y + hl, sh, size - hl); // 우측 쉐이딩 바
+    ctx.fillRect(x + hl, y + size - sh, size - hl, sh); // 하단 쉐이딩 바
+
+    // 4. 상단 및 좌측 밝은 하이라이트 (spec.light)
+    ctx.fillStyle = spec.light;
+    ctx.fillRect(x, y, size, hl); // 상단 하이라이트 바
+    ctx.fillRect(x, y, hl, size); // 좌측 하이라이트 바
+
+    ctx.restore();
+
+    // 5. 미세하고 부드러운 타일 경계선
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+    ctx.lineWidth = 1;
+    this.drawRoundedRectPath(ctx, x, y, size, size, r);
+    ctx.stroke();
+  }
+
+  /**
+   * 💎 [초고속 60fps] 10종 쉐이딩 타일 오프스크린 캔버스 캐시
+   */
   initGemCache() {
     this.gemCache = [];
     const cacheSize = 64;
-    const r = cacheSize / 2;
-    const cx = r;
-    const cy = r;
+    const cx = cacheSize / 2;
+    const cy = cacheSize / 2;
+    const drawSize = 58;
 
     this.gemSpecs.forEach((spec) => {
       const oc = document.createElement('canvas');
@@ -230,41 +276,7 @@ class PrismCrossEngine {
       oc.height = cacheSize;
       const octx = oc.getContext('2d');
 
-      // 1. 외곽 은은한 아우라 림 (CPU 가우시안 블러 없이 투명도 림 드로잉)
-      const auraGrad = octx.createRadialGradient(cx, cy, r * 0.45, cx, cy, r * 0.95);
-      auraGrad.addColorStop(0, spec.light);
-      auraGrad.addColorStop(0.6, spec.color);
-      auraGrad.addColorStop(1, "transparent");
-      octx.fillStyle = auraGrad;
-      octx.globalAlpha = 0.35;
-      this.drawShapePath(octx, cx, cy, r * 0.95, spec.shape);
-      octx.fill();
-      octx.globalAlpha = 1.0;
-
-      // 2. 다층 그라데이션 베이스
-      const grad = octx.createRadialGradient(cx - r * 0.32, cy - r * 0.32, 1, cx, cy, r * 0.88);
-      grad.addColorStop(0, spec.light);
-      grad.addColorStop(0.42, spec.color);
-      grad.addColorStop(0.85, spec.dark);
-      grad.addColorStop(1, "#030712");
-      octx.fillStyle = grad;
-      this.drawShapePath(octx, cx, cy, r * 0.85, spec.shape);
-      octx.fill();
-
-      // 3. 크리스탈 각면 컷(Prismatic Facet Cut) 기하학 라인
-      this.drawFacetLines(octx, cx, cy, r * 0.85, spec.shape);
-
-      // 4. 고광택 크리스탈 베벨 테두리 선
-      octx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-      octx.lineWidth = 1.6;
-      this.drawShapePath(octx, cx, cy, r * 0.85, spec.shape);
-      octx.stroke();
-
-      // 5. 상단 글라스 반사 하이라이트 글레어
-      octx.fillStyle = "rgba(255, 255, 255, 0.65)";
-      octx.beginPath();
-      octx.ellipse(cx - r * 0.22, cy - r * 0.32, r * 0.38, r * 0.2, -Math.PI / 6, 0, Math.PI * 2);
-      octx.fill();
+      this.drawShadedTile(octx, cx, cy, drawSize, spec);
 
       this.gemCache.push(oc);
     });
@@ -1648,7 +1660,7 @@ class PrismCrossEngine {
 
         const fgGrad = ctx.createLinearGradient(fvX, 0, fvX + fvW, 0);
         fgGrad.addColorStop(0, "#3B82F6");
-        fgGrad.addColorStop(1, "#EC4899");
+        fgGrad.addColorStop(1, "#F68ABF");
         ctx.fillStyle = fgGrad;
         ctx.fillRect(fvX, fvY, fvW * (this.feverGauge / 100), fvH);
 
@@ -1846,21 +1858,54 @@ class PrismCrossEngine {
             this.drawCandyGem(ctx, cx, cy, this.gemSize, cell.type, cell.special);
           }
 
-          // 2. 특수 보석 아이콘 또는 접근성 룬 (가벼운 오버레이)
+          // 2. 특수 보석 아이콘 (타일 색상과 사각형 형태가 확실히 보이도록 컴팩트 뱃지 & 외곽 네온 림)
           if (cell.special) {
             ctx.save();
+            const time = performance.now();
+            const pulse = 0.8 + Math.sin(time * 0.008) * 0.2;
+            const sHalf = this.gemSize * 0.44;
+
+            // 1) 외곽 특수 엠블럼 네온 림 (타일 색상을 가리지 않고 모서리를 강조)
+            ctx.lineWidth = 1.6;
+            if (cell.special === 'bomb') {
+              ctx.strokeStyle = `rgba(255, 61, 0, ${pulse})`;
+              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+              ctx.stroke();
+            } else if (cell.special === 'lightning') {
+              ctx.strokeStyle = `rgba(0, 229, 255, ${pulse})`;
+              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+              ctx.stroke();
+            } else if (cell.special === 'time') {
+              ctx.strokeStyle = `rgba(255, 214, 0, ${pulse})`;
+              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+              ctx.stroke();
+            } else if (cell.special === 'wild') {
+              const hue = (time * 0.15) % 360;
+              ctx.strokeStyle = `hsla(${hue}, 100%, 65%, ${pulse})`;
+              this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+              ctx.stroke();
+            }
+
+            // 2) 중심 컴팩트 반투명 뱃지
+            ctx.fillStyle = "rgba(10, 15, 30, 0.42)";
+            ctx.beginPath();
+            ctx.arc(cx, cy, this.gemSize * 0.28, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3) 소형화된 아이콘 텍스트 (타일 색상이 70% 이상 노출되도록 조정)
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.font = `bold ${Math.floor(this.gemSize * 0.68)}px sans-serif`;
+            ctx.font = `bold ${Math.floor(this.gemSize * 0.48)}px sans-serif`;
             let icon = "";
             if (cell.special === 'bomb') icon = "💣";
             else if (cell.special === 'wild') icon = "🌈";
             else if (cell.special === 'lightning') icon = "⚡";
             else if (cell.special === 'time') icon = "⏰";
             ctx.fillText(icon, cx, cy);
+
             ctx.restore();
           } else if (this.colorBlindMode) {
-            this.renderRuneSymbol(ctx, cell.type, cx, cy, this.gemSize * 0.6);
+            this.renderRuneSymbol(ctx, cell.type, cx, cy, this.gemSize * 0.58);
           }
         }
       }
@@ -1869,41 +1914,41 @@ class PrismCrossEngine {
 
   drawCandyGem(ctx, cx, cy, size, gemType, special) {
     const spec = this.gemSpecs[gemType];
-    const r = size / 2;
-
     ctx.save();
 
-    // 1. 다층 그라데이션 베이스
-    const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, 1, cx, cy, r * 1.1);
-    grad.addColorStop(0, spec.light);
-    grad.addColorStop(0.4, spec.color);
-    grad.addColorStop(0.85, spec.dark);
-    grad.addColorStop(1, "#030712");
-    ctx.fillStyle = grad;
+    // 1. 미니멀 3D 쉐이딩 타일 렌더링
+    this.drawShadedTile(ctx, cx, cy, size, spec);
 
-    this.drawShapePath(ctx, cx, cy, r * 0.9, spec.shape);
-    ctx.fill();
-
-    // 2. 💎 크리스탈 각면 컷(Prismatic Facet Cut) 기하학 라인
-    this.drawFacetLines(ctx, cx, cy, r * 0.9, spec.shape);
-
-    // 3. 고광택 크리스탈 베벨 테두리 선
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
-    ctx.lineWidth = 1.5;
-    this.drawShapePath(ctx, cx, cy, r * 0.9, spec.shape);
-    ctx.stroke();
-
-    // 4. 상단 글라스 반사 하이라이트 글레어
-    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-    ctx.beginPath();
-    ctx.ellipse(cx - r * 0.22, cy - r * 0.32, r * 0.38, r * 0.2, -Math.PI / 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 5. 특수 보석 아이콘 표시
+    // 2. 특수 보석 아이콘 표시 (컴팩트 뱃지 & 외곽 네온 림)
     if (special) {
+      const sHalf = size * 0.44;
+      ctx.lineWidth = 1.6;
+      if (special === 'bomb') {
+        ctx.strokeStyle = "#FF3D00";
+        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+        ctx.stroke();
+      } else if (special === 'lightning') {
+        ctx.strokeStyle = "#00E5FF";
+        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+        ctx.stroke();
+      } else if (special === 'time') {
+        ctx.strokeStyle = "#FFD600";
+        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+        ctx.stroke();
+      } else if (special === 'wild') {
+        ctx.strokeStyle = "#E040FB";
+        this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "rgba(10, 15, 30, 0.42)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `bold ${Math.floor(size * 0.68)}px sans-serif`;
+      ctx.font = `bold ${Math.floor(size * 0.48)}px sans-serif`;
 
       let icon = "";
       if (special === 'bomb') icon = "💣";
@@ -1913,7 +1958,7 @@ class PrismCrossEngine {
 
       ctx.fillText(icon, cx, cy);
     } else if (this.colorBlindMode) {
-      this.renderRuneSymbol(ctx, gemType, cx, cy, size * 0.6);
+      this.renderRuneSymbol(ctx, gemType, cx, cy, size * 0.58);
     }
 
     ctx.restore();
@@ -1964,11 +2009,18 @@ class PrismCrossEngine {
         ctx.lineTo(cx, cy + r * 0.2);
         break;
 
-      case "square": // 둥근 사각형 - X자 다이아몬드
-        ctx.moveTo(cx - r * 0.6, cy - r * 0.6);
-        ctx.lineTo(cx + r * 0.6, cy + r * 0.6);
-        ctx.moveTo(cx + r * 0.6, cy - r * 0.6);
-        ctx.lineTo(cx - r * 0.6, cy + r * 0.6);
+      case "square": // 입체 크리스탈 큐브 타일 베벨 컷
+        const inS = r * 0.58;
+        const outS = r * 0.88;
+        ctx.strokeRect(cx - inS, cy - inS, inS * 2, inS * 2);
+        ctx.moveTo(cx - outS, cy - outS);
+        ctx.lineTo(cx - inS, cy - inS);
+        ctx.moveTo(cx + outS, cy - outS);
+        ctx.lineTo(cx + inS, cy - inS);
+        ctx.moveTo(cx - outS, cy + outS);
+        ctx.lineTo(cx - inS, cy + inS);
+        ctx.moveTo(cx + outS, cy + outS);
+        ctx.lineTo(cx + inS, cy + inS);
         break;
 
       case "star": // 5각 별 - 중심 릿지
@@ -2031,8 +2083,8 @@ class PrismCrossEngine {
         ctx.closePath();
         break;
 
-      case "square": // 둥근 정사각형
-        const s = r * 0.8;
+      case "square": // 둥근 정사각형 타일 (원작 사각형 타일)
+        const s = r * 0.88;
         this.drawRoundedRectPath(ctx, cx - s, cy - s, s * 2, s * 2, 4);
         break;
 

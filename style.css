@@ -9,7 +9,7 @@
   --accent-blue: #3B82F6;
   --accent-cyan: #06B6D4;
   --accent-purple: #8B5CF6;
-  --accent-pink: #EC4899;
+  --accent-pink: #F68ABF;
   --accent-amber: #F59E0B;
   --accent-green: #10B981;
   --text-main: #F9FAFB;
@@ -62,7 +62,7 @@ header {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #3B82F6, #EC4899);
+  background: linear-gradient(135deg, #3B82F6, #F68ABF);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -359,7 +359,7 @@ main {
 }
 
 .modal-header.victory h2 {
-  background: linear-gradient(135deg, #F59E0B, #EC4899);
+  background: linear-gradient(135deg, #F59E0B, #F68ABF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
