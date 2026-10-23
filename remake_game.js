@@ -1981,15 +1981,15 @@ class PrismCrossEngine {
     const sHalf = size * 0.44;
 
     // 1) 외곽 고선명 네온 테두리 (타일 경계 강조)
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.8;
     ctx.strokeStyle = conf.neonColor;
     ctx.shadowColor = conf.glowColor;
     ctx.shadowBlur = 6 * pulse;
     this.drawRoundedRectPath(ctx, cx - sHalf, cy - sHalf, sHalf * 2, sHalf * 2, 4);
     ctx.stroke();
 
-    // 2) 중심 컴팩트 엠블럼 실드 (기존 대비 0.5배 크기로 축소)
-    const badgeR = size * 0.18;
+    // 2) 중심 균형 엠블럼 실드 (이전 대비 1.5배 확대 조정)
+    const badgeR = size * 0.27;
     ctx.shadowBlur = 0;
     ctx.fillStyle = conf.darkBg;
     ctx.beginPath();
@@ -1997,7 +1997,7 @@ class PrismCrossEngine {
     ctx.fill();
 
     // 3) 뱃지 외곽 발광 네온 링
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.8;
     ctx.strokeStyle = conf.neonColor;
     ctx.shadowColor = conf.glowColor;
     ctx.shadowBlur = 5 * pulse;
@@ -2006,22 +2006,22 @@ class PrismCrossEngine {
     ctx.stroke();
 
     // 4) 뱃지 내부 메탈릭 보조 링
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = 0.9;
     ctx.strokeStyle = conf.ringColor;
     ctx.shadowBlur = 0;
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(1, badgeR - 1.5), 0, Math.PI * 2);
+    ctx.arc(cx, cy, Math.max(1, badgeR - 2.0), 0, Math.PI * 2);
     ctx.stroke();
 
-    // 5) 컴팩트 아이콘 텍스트 렌더링 (기존 0.54 -> 0.27로 정확히 0.5배 축소)
+    // 5) 최적 밸런스 아이콘 텍스트 렌더링 (이전 대비 1.5배 확대: 0.27 -> 0.405)
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `bold ${Math.round(size * 0.27)}px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
+    ctx.font = `bold ${Math.round(size * 0.405)}px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
     ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
     ctx.shadowBlur = 3;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 1;
-    ctx.fillText(conf.icon, cx, cy + 0.5);
+    ctx.fillText(conf.icon, cx, cy + 0.8);
 
     ctx.restore();
   }
