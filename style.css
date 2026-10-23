@@ -294,15 +294,19 @@ main {
 /* 캔버스 래퍼 */
 .canvas-wrapper {
   position: relative;
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 25px rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 25px 60px rgba(0, 0, 0, 0.8),
+    0 0 35px rgba(56, 189, 248, 0.25),
+    0 0 70px rgba(147, 51, 234, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #060814;
 }
 
-#remakeCanvas {
+#gameCanvas, #remakeCanvas {
   display: block;
-  background: #0F172A;
+  background: #060814;
   max-width: 100%;
   height: auto;
 }

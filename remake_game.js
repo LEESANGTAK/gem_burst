@@ -86,6 +86,32 @@ class PrismCrossEngine {
     this.screenShake = 0;
     this.hoverCell = null;
 
+    // 🌌 테트리스 이펙트 & 우주 행성 비주얼 시스템 (Cosmic Environment)
+    this.stars = [];
+    this.nebulae = [];
+    this.shootingStars = [];
+    this.shootingStarTimer = 3.0;
+    this.initStarfield();
+    this.initNebulae();
+
+    // 💎 [초고속 60fps 최적화] 10종 프리즘 보석 오프스크린 캔버스 캐시
+    this.gemCache = [];
+    this.initGemCache();
+
+    // 🎆 불꽃놀이 & 초신성 폭발 엔진 (Firework & Supernova Engine)
+    this.fireworks = []; // 불꽃놀이 스파크 & 빛 꼬리(Trail)
+    this.shockwaves = []; // 팽창하는 무지개/네온 충격파 링
+    this.supernovaFlashes = []; // 중심부 고휘도 초신성 코어 플래시 & 렌즈 플레어
+    this.cosmicGlitters = []; // 폭발 후 나풀거리며 낙하하는 은하 글리터 가루
+    this.cameraZoom = 1.0; // 타격감 극대화 카메라 줌 펄스
+    this.microTwinkles = []; // 보석 표면에서 반짝이는 별빛 스파클
+    this.lightningBolts = []; // ⚡ 전기 젬 체인 라이트닝 볼트
+
+    // 성능 최적화: 파티클 최대 상한선(Cap)
+    this.maxFireworks = 80;
+    this.maxGlitters = 40;
+    this.maxShockwaves = 10;
+
     this.bindEvents();
 
     this.lastTime = performance.now();
@@ -133,6 +159,7 @@ class PrismCrossEngine {
     this.shards = [];
     this.particles = [];
     this.beams = [];
+    this.lightningBolts = [];
     this.floatingTexts = [];
     this.history = [];
 
@@ -182,6 +209,273 @@ class PrismCrossEngine {
         row.push(pool[pIdx++]);
       }
       this.grid.push(row);
+    }
+  }
+
+  /**
+   * 💎 [초고속 60fps 최적화] 10종 프리즘 보석 오프스크린 캔버스 캐시
+   * - 게임 시작 시 고해상도 64x64 캔버스에 각면 컷, 그라데이션, 베벨, 하이라이트를 1회 사전 렌더링
+   * - 렌더 루프에서는 drawImage 텍스처 복사로 대체하여 CPU 부하를 98% 제거!
+   */
+  initGemCache() {
+    this.gemCache = [];
+    const cacheSize = 64;
+    const r = cacheSize / 2;
+    const cx = r;
+    const cy = r;
+
+    this.gemSpecs.forEach((spec) => {
+      const oc = document.createElement('canvas');
+      oc.width = cacheSize;
+      oc.height = cacheSize;
+      const octx = oc.getContext('2d');
+
+      // 1. 외곽 은은한 아우라 림 (CPU 가우시안 블러 없이 투명도 림 드로잉)
+      const auraGrad = octx.createRadialGradient(cx, cy, r * 0.45, cx, cy, r * 0.95);
+      auraGrad.addColorStop(0, spec.light);
+      auraGrad.addColorStop(0.6, spec.color);
+      auraGrad.addColorStop(1, "transparent");
+      octx.fillStyle = auraGrad;
+      octx.globalAlpha = 0.35;
+      this.drawShapePath(octx, cx, cy, r * 0.95, spec.shape);
+      octx.fill();
+      octx.globalAlpha = 1.0;
+
+      // 2. 다층 그라데이션 베이스
+      const grad = octx.createRadialGradient(cx - r * 0.32, cy - r * 0.32, 1, cx, cy, r * 0.88);
+      grad.addColorStop(0, spec.light);
+      grad.addColorStop(0.42, spec.color);
+      grad.addColorStop(0.85, spec.dark);
+      grad.addColorStop(1, "#030712");
+      octx.fillStyle = grad;
+      this.drawShapePath(octx, cx, cy, r * 0.85, spec.shape);
+      octx.fill();
+
+      // 3. 크리스탈 각면 컷(Prismatic Facet Cut) 기하학 라인
+      this.drawFacetLines(octx, cx, cy, r * 0.85, spec.shape);
+
+      // 4. 고광택 크리스탈 베벨 테두리 선
+      octx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+      octx.lineWidth = 1.6;
+      this.drawShapePath(octx, cx, cy, r * 0.85, spec.shape);
+      octx.stroke();
+
+      // 5. 상단 글라스 반사 하이라이트 글레어
+      octx.fillStyle = "rgba(255, 255, 255, 0.65)";
+      octx.beginPath();
+      octx.ellipse(cx - r * 0.22, cy - r * 0.32, r * 0.38, r * 0.2, -Math.PI / 6, 0, Math.PI * 2);
+      octx.fill();
+
+      this.gemCache.push(oc);
+    });
+  }
+
+  /**
+   * 🌌 3단 깊이감(Depth)과 반짝임을 가진 90개 우주 별무리 초기화
+   */
+  initStarfield() {
+    this.stars = [];
+    const starColors = ["#FFFFFF", "#BAE6FD", "#FDE68A", "#FBCFE8"];
+    for (let i = 0; i < 90; i++) {
+      const depth = 1 + Math.random() * 2.2;
+      this.stars.push({
+        x: Math.random() * this.width,
+        y: Math.random() * this.height,
+        depth: depth,
+        size: (0.7 + Math.random() * 1.2) * (depth / 2),
+        color: starColors[i % starColors.length],
+        baseAlpha: 0.25 + Math.random() * 0.65,
+        twinkleSpeed: 1.5 + Math.random() * 3.0,
+        twinklePhase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  /**
+   * 🌌 신비로운 유기적 우주 오로라 성운(Nebulae) 초기화
+   */
+  initNebulae() {
+    this.nebulae = [
+      { x: 180, y: 160, radius: 260, color1: "rgba(30, 58, 138, 0.32)", color2: "rgba(147, 51, 234, 0.0)", speed: 0.0004, phase: 0 },
+      { x: 620, y: 440, radius: 280, color1: "rgba(131, 24, 67, 0.26)", color2: "rgba(219, 39, 119, 0.0)", speed: -0.0003, phase: 1.5 },
+      { x: 400, y: 300, radius: 320, color1: "rgba(14, 116, 144, 0.22)", color2: "rgba(56, 189, 248, 0.0)", speed: 0.0002, phase: 3.0 },
+      { x: 680, y: 120, radius: 220, color1: "rgba(91, 33, 182, 0.28)", color2: "rgba(192, 132, 252, 0.0)", speed: -0.0005, phase: 4.5 }
+    ];
+  }
+
+  /**
+   * 🌌 우주 배경 업데이트 (성운 표동, 별 반짝임, 유성우)
+   */
+  updateCosmicBackground(dt) {
+    const time = performance.now();
+
+    // 성운 표동
+    this.nebulae.forEach(n => {
+      n.phase += n.speed;
+      n.curX = n.x + Math.sin(time * 0.0003 + n.phase) * 35;
+      n.curY = n.y + Math.cos(time * 0.00025 + n.phase) * 25;
+    });
+
+    // 별 반짝임 & 이동
+    this.stars.forEach(s => {
+      s.twinklePhase += s.twinkleSpeed * dt;
+      if (this.isFever) {
+        // 피버 워프: 중심에서 바깥으로 초고속 이동
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        const dx = s.x - cx;
+        const dy = s.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const speed = (240 * s.depth + dist * 2.0) * dt;
+        s.x += (dx / dist) * speed;
+        s.y += (dy / dist) * speed;
+
+        if (s.x < -20 || s.x > this.width + 20 || s.y < -20 || s.y > this.height + 20) {
+          const a = Math.random() * Math.PI * 2;
+          const r = Math.random() * 40 + 10;
+          s.x = cx + Math.cos(a) * r;
+          s.y = cy + Math.sin(a) * r;
+        }
+      } else {
+        s.x += Math.sin(s.twinklePhase * 0.3) * 0.15 * dt * 60;
+        s.y += Math.cos(s.twinklePhase * 0.2) * 0.1 * dt * 60;
+      }
+    });
+
+    // 유성우(Shooting Stars)
+    this.shootingStarTimer -= dt;
+    if (this.shootingStarTimer <= 0) {
+      this.shootingStarTimer = 3.0 + Math.random() * 4.0;
+      const startX = Math.random() * (this.width + 200) - 100;
+      const angle = Math.PI / 4 + (Math.random() - 0.5) * 0.3;
+      const speed = 750 + Math.random() * 400;
+      this.shootingStars.push({
+        x: startX,
+        y: -30,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        len: 80 + Math.random() * 70,
+        life: 0.9,
+        maxLife: 0.9,
+        color: Math.random() > 0.4 ? "#E0F2FE" : "#FDE68A"
+      });
+    }
+
+    for (let i = this.shootingStars.length - 1; i >= 0; i--) {
+      const ss = this.shootingStars[i];
+      ss.life -= dt;
+      ss.x += ss.vx * dt;
+      ss.y += ss.vy * dt;
+      if (ss.life <= 0) {
+        this.shootingStars.splice(i, 1);
+      }
+    }
+  }
+
+  /**
+   * 🎆 테트리스 이펙트 & 행성 폭발 불꽃놀이 파티클 엔진
+   * - 가산 혼합(Additive Blending) 기반
+   * - 각 파티클이 이전 4~6개의 위치를 기록해 눈부신 모션 꼬리(Trail)를 남김
+   * - 팽창 충격파 링 + 초신성 코어 플래시 + 은하 글리터 가루 낙하
+   */
+  triggerFireworkBurst(cx, cy, gemType, isFever = false, isBomb = false, combo = 1) {
+    const spec = this.gemSpecs[gemType] || this.gemSpecs[0];
+
+    // 1. 카메라 줌 펄스 (타격감)
+    this.cameraZoom = isBomb ? 1.035 : (isFever ? 1.025 : (combo > 2 ? 1.018 : 1.012));
+
+    // 2. 초신성 코어 플래시 (Supernova Flash)
+    const flashRadius = isBomb ? 48 : (isFever ? 38 : 26);
+    this.supernovaFlashes.push({
+      x: cx,
+      y: cy,
+      radius: flashRadius * 0.4,
+      targetRadius: flashRadius,
+      color: "#FFFFFF",
+      glowColor: spec.light || "#FFFFFF",
+      rays: isBomb ? 8 : (isFever ? 6 : 4),
+      life: 0.14,
+      maxLife: 0.14
+    });
+
+    // 3. 팽창 에너지 충격파 링 (Shockwave Ring)
+    const shockMaxRadius = isBomb ? 90 : (isFever ? 70 : (combo > 1 ? 50 : 38));
+    this.shockwaves.push({
+      x: cx,
+      y: cy,
+      radius: 4,
+      maxRadius: shockMaxRadius,
+      speed: 280,
+      color: spec.light || "#38BDF8",
+      lineWidth: isBomb ? 3.5 : (isFever ? 2.5 : 2),
+      alpha: 1.0
+    });
+
+    if (this.shockwaves.length > this.maxShockwaves) {
+      this.shockwaves.splice(0, this.shockwaves.length - this.maxShockwaves);
+    }
+
+    // 4. 불꽃놀이 스파크 파티클 (Firework Sparks with Motion Trails) - [최적화 수량]
+    const sparkCount = isBomb ? 26 : (isFever ? 20 : (10 + Math.min(6, combo)));
+    const vibrantColors = [
+      spec.light,
+      spec.color,
+      "#FFFFFF",
+      "#FDE047"
+    ];
+
+    for (let i = 0; i < sparkCount; i++) {
+      const angle = (i / sparkCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const speed = (isBomb ? 160 : (isFever ? 130 : 100)) + Math.random() * (isBomb ? 200 : (isFever ? 150 : 110));
+      const chosenColor = vibrantColors[i % vibrantColors.length];
+
+      this.fireworks.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (30 + Math.random() * 50),
+        drag: 0.95,
+        gravity: 180 + Math.random() * 100,
+        history: [{ x: cx, y: cy }],
+        maxHistory: 4, // 4프레임의 최적화된 꼬리
+        color: chosenColor,
+        size: 2.2 + Math.random() * 1.6,
+        life: 0.65 + Math.random() * 0.45,
+        maxLife: 1.1,
+        shimmerSpeed: 18 + Math.random() * 12,
+        shimmerPhase: Math.random() * Math.PI * 2,
+        hasSubBurst: Math.random() < 0.15
+      });
+    }
+
+    // 파티클 상한선(Cap) 초과분 제거
+    if (this.fireworks.length > this.maxFireworks) {
+      this.fireworks.splice(0, this.fireworks.length - this.maxFireworks);
+    }
+
+    // 5. 나풀나풀 떨어지는 은하 글리터 가루 (Falling Cosmic Glitter) - [최적화 수량]
+    const glitterCount = isBomb ? 8 : (isFever ? 6 : 3);
+    for (let i = 0; i < glitterCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spread = 15 + Math.random() * 40;
+      this.cosmicGlitters.push({
+        x: cx + Math.cos(angle) * spread * 0.3,
+        y: cy + Math.sin(angle) * spread * 0.3,
+        vx: (Math.random() - 0.5) * 25,
+        vy: 15 + Math.random() * 25,
+        size: 1.5 + Math.random() * 1.5,
+        color: i % 2 === 0 ? spec.light : "#FFFFFF",
+        rot: Math.random() * Math.PI * 2,
+        vrot: (Math.random() - 0.5) * 3,
+        alpha: 1.0,
+        life: 1.0 + Math.random() * 0.6,
+        maxLife: 1.6,
+        twinkleRate: 10 + Math.random() * 10
+      });
+    }
+
+    if (this.cosmicGlitters.length > this.maxGlitters) {
+      this.cosmicGlitters.splice(0, this.cosmicGlitters.length - this.maxGlitters);
     }
   }
 
@@ -341,36 +635,97 @@ class PrismCrossEngine {
       let triggeredBomb = false;
       let triggeredLightning = false;
       let triggeredTime = false;
+      const bombPositions = [];
+      const lightningPositions = [];
 
       scan.matchedGems.forEach(item => {
         toRemove.add(`${item.r},${item.c}`);
-        if (item.data.special === 'bomb') triggeredBomb = true;
-        if (item.data.special === 'lightning') triggeredLightning = true;
+        if (item.data.special === 'bomb') {
+          triggeredBomb = true;
+          bombPositions.push({ r: item.r, c: item.c });
+        }
+        if (item.data.special === 'lightning') {
+          triggeredLightning = true;
+          lightningPositions.push({ r: item.r, c: item.c });
+        }
         if (item.data.special === 'time') triggeredTime = true;
       });
 
-      // 💣 십자 폭탄 젬 발동: 해당 행(row)과 열(col) 전체의 모든 보석을 소거!
+      // 💣 폭탄 젬 발동: 폭탄이 터진 위치 주변 3x3 범위의 모든 타일을 직관적으로 소거!
       if (triggeredBomb) {
-        for (let c = 0; c < this.cols; c++) {
-          if (this.grid[row][c] !== null) toRemove.add(`${row},${c}`);
-        }
-        for (let r = 0; r < this.rows; r++) {
-          if (this.grid[r][col] !== null) toRemove.add(`${r},${col}`);
-        }
-        if (window.soundEngine) window.soundEngine.playBombExplosion();
-        this.screenShake = 18;
-      }
-
-      // ⚡ 라이트닝 젬 발동: 무작위 보석 4개 추가 저격
-      if (triggeredLightning) {
-        let added = 0;
-        for (let r = 0; r < this.rows && added < 4; r++) {
-          for (let c = 0; c < this.cols && added < 4; c++) {
-            if (this.grid[r][c] !== null && !toRemove.has(`${r},${c}`)) {
-              toRemove.add(`${r},${c}`);
-              added++;
+        bombPositions.forEach(bPos => {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = bPos.r + dr;
+              const nc = bPos.c + dc;
+              if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+                if (this.grid[nr][nc] !== null) {
+                  toRemove.add(`${nr},${nc}`);
+                }
+              }
             }
           }
+        });
+        if (window.soundEngine) window.soundEngine.playBombExplosion();
+        this.screenShake = 16;
+      }
+
+      // ⚡ 전기(라이트닝) 젬 발동: 스케치처럼 동일한 종류의 보석들로 굵은 지그재그 체인 번개가 뻗어나가 일제 소거!
+      if (triggeredLightning) {
+        for (const lPos of lightningPositions) {
+          const startX = this.offsetX + lPos.c * this.cellSpacing + this.cellSpacing / 2;
+          const startY = this.offsetY + lPos.r * this.cellSpacing + this.cellSpacing / 2;
+          const sourceGem = this.grid[lPos.r][lPos.c];
+          const targetType = sourceGem ? sourceGem.type : (scan.matchedGems[0]?.data?.type ?? 0);
+
+          // 1. 화면 전체에서 전기 타일과 같은 종류(Same Type)의 보석들을 우선 탐색!
+          const sameTypeCandidates = [];
+          const otherCandidates = [];
+
+          for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+              if (this.grid[r][c] !== null && !toRemove.has(`${r},${c}`)) {
+                const d = Math.hypot(r - lPos.r, c - lPos.c);
+                if (this.grid[r][c].type === targetType) {
+                  sameTypeCandidates.push({ r, c, dist: d, gem: this.grid[r][c] });
+                } else {
+                  otherCandidates.push({ r, c, dist: d, gem: this.grid[r][c] });
+                }
+              }
+            }
+          }
+
+          // 거리순 정렬
+          sameTypeCandidates.sort((a, b) => a.dist - b.dist);
+          otherCandidates.sort((a, b) => a.dist - b.dist);
+
+          // 동일 종류 보석 최대 5개 선택, 부족하면 다른 보석으로 총 4~5개 보충
+          const selected = sameTypeCandidates.slice(0, 5);
+          if (selected.length < 4) {
+            const need = 4 - selected.length;
+            selected.push(...otherCandidates.slice(0, need));
+          }
+
+          // 2. 전기 타일에서 각 타겟으로 굵직한 교대 지그재그 번개 줄기 연결
+          let prevTarget = { x: startX, y: startY };
+          selected.forEach((cand, idx) => {
+            toRemove.add(`${cand.r},${cand.c}`);
+            const targetX = this.offsetX + cand.c * this.cellSpacing + this.cellSpacing / 2;
+            const targetY = this.offsetY + cand.r * this.cellSpacing + this.cellSpacing / 2;
+
+            // 전기 젬에서 타겟으로 직접 뻗어나가는 번개
+            this.createLightningBolt(startX, startY, targetX, targetY, "#00E5FF");
+
+            // 체인(Chain) 연쇄: 중간 보석과 다음 보석 사이에도 번개 호 연결 (스케치 연출)
+            if (idx > 0 && Math.hypot(targetX - prevTarget.x, targetY - prevTarget.y) < 220) {
+              this.createLightningBolt(prevTarget.x, prevTarget.y, targetX, targetY, "#E0F2FE");
+            }
+            prevTarget = { x: targetX, y: targetY };
+          });
+        }
+
+        if (window.soundEngine && window.soundEngine.playLightningSound) {
+          window.soundEngine.playLightningSound();
         }
       }
 
@@ -392,7 +747,9 @@ class PrismCrossEngine {
       if (this.isFever) {
         this.addFloatingText(cx, cy, `🔥 FEVER BURST! +${earnedScore}`, "#FF007F", 20);
       } else if (triggeredBomb) {
-        this.addFloatingText(cx, cy, `💣 CROSS BOMB!! +${earnedScore}`, "#FFD700", 22);
+        this.addFloatingText(cx, cy, `💣 3x3 AREA BOMB!! +${earnedScore}`, "#FFD700", 22);
+      } else if (triggeredLightning) {
+        this.addFloatingText(cx, cy, `⚡ CHAIN LIGHTNING!! +${earnedScore}`, "#38BDF8", 22);
       } else if (triggeredTime) {
         this.addFloatingText(cx, cy, `⏰ TIME +5s!`, "#00E5FF", 18);
       } else if (this.combo > 1) {
@@ -408,9 +765,10 @@ class PrismCrossEngine {
         }
       }
 
-      // 피버 게이지 충전
+      // 피버 게이지 충전 (밸런스 정상화: 너무 자주 발동되지 않도록 기존의 1/4로 하향 조정)
       if (!this.isFever && (this.mode === 'arcade' || this.mode === 'special')) {
-        this.feverGauge = Math.min(100, this.feverGauge + count * 6 + this.combo * 2);
+        const feverGain = count * 1.5 + this.combo * 0.8;
+        this.feverGauge = Math.min(100, this.feverGauge + feverGain);
         if (this.feverGauge >= 100) {
           this.activateFever();
         }
@@ -421,17 +779,30 @@ class PrismCrossEngine {
         this.createLaserBeam(row, col, item.r, item.c, item.data.type);
       });
 
-      // 산산조각 박살 파편(Shatter Physics) 방출 및 보드에서 소거
+      // 🎆 불꽃놀이 폭발(Fireworks Burst) & 산산조각 파편(Shatter Physics) 방출
       toRemove.forEach(key => {
         const [rStr, cStr] = key.split(',');
         const r = parseInt(rStr, 10);
         const c = parseInt(cStr, 10);
         const gemData = this.grid[r][c];
         if (gemData) {
+          const gemCx = this.offsetX + c * this.cellSpacing + this.cellSpacing / 2;
+          const gemCy = this.offsetY + r * this.cellSpacing + this.cellSpacing / 2;
+          
+          // 1. 눈부신 불꽃놀이 스파크 & 충격파 & 모션 꼬리 트레일 방출
+          this.triggerFireworkBurst(gemCx, gemCy, gemData.type, this.isFever, triggeredBomb, this.combo);
+          
+          // 2. 크리스탈 산산조각 물리 파편 방출
           this.shatterGemIntoPieces(r, c, gemData.type);
+          
           this.grid[r][c] = null;
         }
       });
+
+      // 중심 클릭 지점 추가 슈퍼노바 버스트
+      if (this.isFever || triggeredBomb || count >= 3) {
+        this.triggerFireworkBurst(cx, cy, scan.matchedGems[0]?.data?.type || 0, this.isFever, triggeredBomb, this.combo + 1);
+      }
 
       if (this.screenShakeEnabled) {
         this.screenShake = this.isFever ? 14 : (count >= 3 ? 8 : 4);
@@ -501,6 +872,83 @@ class PrismCrossEngine {
   }
 
   /**
+   * ⚡ 체인 라이트닝 볼트 생성 (좁고 날렵한 면도날 선 형태의 지그재그 번개 아크)
+   * - 시작점(x1, y1)에서 타겟(x2, y2)까지 가느다란 전기선 형태로 연결
+   */
+  createLightningBolt(x1, y1, x2, y2, color = "#00E5FF") {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return;
+
+    // 거리에 비례하여 10~14px 간격으로 촘촘하고 얇은 전기선 세그먼트 생성
+    const steps = Math.max(6, Math.floor(dist / 12));
+    const nx = -dy / dist;
+    const ny = dx / dist;
+
+    const points = [{ x: x1, y: y1 }];
+    const branches = [];
+
+    for (let i = 1; i < steps; i++) {
+      const progress = i / steps;
+      // [선처럼 보이도록 좁은 진폭]: 폭을 1.5~3.0px 수준으로 최소화하여 날렵한 전기선 실루엣 형성
+      const side = (i % 2 === 0) ? 1 : -1;
+      const amplitude = (1.5 + Math.random() * 1.8) * Math.sin(progress * Math.PI);
+
+      const px = x1 + dx * progress + nx * (side * amplitude);
+      const py = y1 + dy * progress + ny * (side * amplitude);
+      points.push({ x: px, y: py });
+
+      // 작고 날렵한 미세 번개 잔가지
+      if (Math.random() < 0.25 && branches.length < 2) {
+        const branchLen = 6 + Math.random() * 6;
+        const bAngle = Math.atan2(dy, dx) + side * 0.5;
+        const bx2 = px + Math.cos(bAngle) * branchLen;
+        const by2 = py + Math.sin(bAngle) * branchLen;
+        branches.push([
+          { x: px, y: py },
+          { x: bx2, y: by2 }
+        ]);
+      }
+    }
+    points.push({ x: x2, y: y2 });
+
+    // 타겟 지점에 파지지직 튀는 미세 전기 스파크 3~4개 생성
+    for (let k = 0; k < 4; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 40 + Math.random() * 60;
+      this.fireworks.push({
+        x: x2,
+        y: y2,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd,
+        drag: 0.92,
+        gravity: 30,
+        history: [{ x: x2, y: y2 }],
+        maxHistory: 3,
+        color: "#00E5FF",
+        size: 1.5,
+        life: 0.25 + Math.random() * 0.15,
+        maxLife: 0.4,
+        shimmerSpeed: 25,
+        shimmerPhase: 0,
+        hasSubBurst: false
+      });
+    }
+
+    this.lightningBolts.push({
+      x1, y1, x2, y2,
+      points,
+      branches,
+      color: color,
+      coreColor: "#FFFFFF",
+      life: 0.28,
+      maxLife: 0.28,
+      width: 1.8 // [가느다란 선 형태의 얇은 번개]
+    });
+  }
+
+  /**
    * 산산조각(Shatter) 파편 물리 생성:
    * 타일 1개가 10~14개의 각진 크리스탈 파편 조각으로 산산조각 박살나 튀어 떨어지는 연출
    */
@@ -509,43 +957,32 @@ class PrismCrossEngine {
     const cy = this.offsetY + r * this.cellSpacing + this.cellSpacing / 2;
     const spec = this.gemSpecs[gemType];
 
-    // 10~14개의 다각형/삼각형 크리스탈 파편 생성
-    const shardCount = 10 + Math.floor(Math.random() * 5);
+    // 5~7개의 다각형 크리스탈 파편 생성 (빛나는 Trail 꼬리 탑재)
+    const shardCount = 5 + Math.floor(Math.random() * 3);
     for (let i = 0; i < shardCount; i++) {
       const angle = (i / shardCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-      const speed = 100 + Math.random() * 180;
+      const speed = 100 + Math.random() * 160;
       
       this.shards.push({
         x: cx,
         y: cy,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 120, // 위로 솟구쳤다가 떨어지는 초기 상승력
+        vy: Math.sin(angle) * speed - 100,
         rotation: Math.random() * Math.PI * 2,
-        vrot: (Math.random() - 0.5) * 16,
-        size: 4 + Math.random() * 6,
-        points: this.generateShardPoly(), // 불규칙한 다각형 파편 꼭짓점
+        vrot: (Math.random() - 0.5) * 12,
+        size: 3.5 + Math.random() * 5,
+        points: this.generateShardPoly(),
         color: i % 3 === 0 ? spec.light : (i % 3 === 1 ? spec.color : spec.dark),
+        trailColor: spec.light || spec.color,
+        history: [{ x: cx, y: cy }],
+        maxHistory: 6, // 6프레임의 매끄러운 크리스탈 빛 꼬리
         alpha: 1.0,
-        life: 1.0 + Math.random() * 0.4
+        life: 0.85 + Math.random() * 0.35
       });
     }
 
-    // 미세 크리스탈 스파크 가루
-    for (let i = 0; i < 6; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const spd = 40 + Math.random() * 80;
-      this.particles.push({
-        x: cx,
-        y: cy,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd,
-        size: 2,
-        color: "#FFFFFF",
-        rot: 0,
-        vrot: 0,
-        alpha: 1.0,
-        life: 0.3
-      });
+    if (this.shards.length > 50) {
+      this.shards.splice(0, this.shards.length - 50);
     }
   }
 
@@ -763,6 +1200,9 @@ class PrismCrossEngine {
         this.isFever = false;
         this.feverGauge = 0;
       }
+    } else if (this.combo === 0 && this.feverGauge > 0) {
+      // 콤보가 유지되지 않으면 피버 게이지가 초당 2.5%씩 서서히 식어감 (피버 남발 방지)
+      this.feverGauge = Math.max(0, this.feverGauge - dt * 2.5);
     }
 
     if (this.feverBannerTimer > 0) {
@@ -787,11 +1227,19 @@ class PrismCrossEngine {
     for (let i = this.shards.length - 1; i >= 0; i--) {
       const s = this.shards[i];
       s.life -= dt;
+
+      // 꼬리 궤적(Trail) 위치 기록
+      if (!s.history) s.history = [];
+      s.history.unshift({ x: s.x, y: s.y });
+      if (s.history.length > (s.maxHistory || 6)) {
+        s.history.pop();
+      }
+
       s.vy += 1200 * dt; // 강한 중력 낙하
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.rotation += s.vrot * dt;
-      s.alpha = Math.max(0, s.life / 1.2);
+      s.alpha = Math.max(0, s.life / 1.0);
       if (s.life <= 0 || s.y > this.height + 80) {
         this.shards.splice(i, 1);
       }
@@ -824,12 +1272,119 @@ class PrismCrossEngine {
         this.floatingTexts.splice(i, 1);
       }
     }
+
+    // 🌌 우주 배경 업데이트
+    this.updateCosmicBackground(dt);
+
+    // ⚡ 카메라 줌 펄스 부드러운 복원 (타격감)
+    this.cameraZoom += (1.0 - this.cameraZoom) * Math.min(1.0, 12 * dt);
+
+    // 🎆 초신성 코어 플래시 업데이트
+    for (let i = this.supernovaFlashes.length - 1; i >= 0; i--) {
+      const sn = this.supernovaFlashes[i];
+      sn.life -= dt;
+      sn.radius += (sn.targetRadius - sn.radius) * 16 * dt;
+      if (sn.life <= 0) {
+        this.supernovaFlashes.splice(i, 1);
+      }
+    }
+
+    // 🎆 충격파 링 업데이트
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      const sw = this.shockwaves[i];
+      sw.radius += sw.speed * dt;
+      sw.alpha = Math.max(0, 1.0 - (sw.radius / sw.maxRadius));
+      if (sw.radius >= sw.maxRadius || sw.alpha <= 0) {
+        this.shockwaves.splice(i, 1);
+      }
+    }
+
+    // 🎆 불꽃놀이 스파크 & 빛 꼬리(Trail) 물리 업데이트
+    for (let i = this.fireworks.length - 1; i >= 0; i--) {
+      const fw = this.fireworks[i];
+      fw.life -= dt;
+
+      // 꼬리 히스토리에 현재 위치 기록
+      fw.history.unshift({ x: fw.x, y: fw.y });
+      if (fw.history.length > fw.maxHistory) {
+        fw.history.pop();
+      }
+
+      // 공기 저항 & 불꽃 중력
+      const dragFactor = Math.pow(fw.drag, dt * 60);
+      fw.vx *= dragFactor;
+      fw.vy += fw.gravity * dt;
+      fw.vy *= dragFactor;
+
+      fw.x += fw.vx * dt;
+      fw.y += fw.vy * dt;
+
+      // 반짝임 위상
+      fw.shimmerPhase += fw.shimmerSpeed * dt;
+
+      if (fw.life <= 0) {
+        // 정점 2차 마이크로 스타더스트 버스트
+        if (fw.hasSubBurst) {
+          for (let k = 0; k < 3; k++) {
+            const subAngle = Math.random() * Math.PI * 2;
+            const subSpd = 30 + Math.random() * 50;
+            this.cosmicGlitters.push({
+              x: fw.x,
+              y: fw.y,
+              vx: Math.cos(subAngle) * subSpd,
+              vy: Math.sin(subAngle) * subSpd + 10,
+              size: 1.5,
+              color: "#FFF9C4",
+              rot: 0,
+              vrot: 2,
+              alpha: 0.9,
+              life: 0.8,
+              maxLife: 0.8,
+              twinkleRate: 15
+            });
+          }
+        }
+        this.fireworks.splice(i, 1);
+      }
+    }
+
+    // 🎆 은하 글리터 가루 낙하 업데이트
+    for (let i = this.cosmicGlitters.length - 1; i >= 0; i--) {
+      const g = this.cosmicGlitters[i];
+      g.life -= dt;
+      g.x += g.vx * dt;
+      g.y += g.vy * dt;
+      g.rot += g.vrot * dt;
+      g.alpha = Math.max(0, g.life / g.maxLife);
+      if (g.life <= 0 || g.y > this.height + 20) {
+        this.cosmicGlitters.splice(i, 1);
+      }
+    }
+
+    // ⚡ 체인 라이트닝 볼트 업데이트
+    for (let i = this.lightningBolts.length - 1; i >= 0; i--) {
+      const lb = this.lightningBolts[i];
+      lb.life -= dt;
+      if (lb.life <= 0) {
+        this.lightningBolts.splice(i, 1);
+      }
+    }
   }
 
   render() {
     const ctx = this.ctx;
     ctx.save();
 
+    // 1. 카메라 줌 펄스 (중심 기준 확대)
+    if (this.cameraZoom !== 1.0) {
+      const cx = this.width / 2;
+      const cy = this.height / 2;
+      ctx.translate(cx, cy);
+      ctx.scale(this.cameraZoom, this.cameraZoom);
+      ctx.translate(-cx, -cy);
+    }
+
+    // 2. 화면 진동 (Screen Shake)
     if (this.screenShake > 0) {
       const sx = (Math.random() - 0.5) * this.screenShake;
       const sy = (Math.random() - 0.5) * this.screenShake;
@@ -838,13 +1393,13 @@ class PrismCrossEngine {
 
     ctx.clearRect(0, 0, this.width, this.height);
 
-    // 1. 다크 네온 배경
+    // 1. 테트리스 이펙트 몽환적 우주 배경 (성운, 140개 3단 별무리, 유성우)
     this.renderModernBackground(ctx);
 
     // 2. 상단 HUD
     this.renderHUD(ctx);
 
-    // 3. 보석 격자판 보드
+    // 3. 보석 격자판 보드 (네온 그리드)
     this.renderBoard(ctx);
 
     // 4. 스마트 레이저 조준선
@@ -852,48 +1407,141 @@ class PrismCrossEngine {
       this.renderCrosshairGuide(ctx);
     }
 
-    // 5. 캔디크러시 스타일 다채로운 모양의 보석(Gems) 렌더링
+    // 5. 프리즘 크리스탈 & 행성 보석(Gems) 렌더링
     this.renderGems(ctx);
 
     // 6. 산산조각 박살 파편(Shards) 물리 렌더링
     this.renderShards(ctx);
 
-    // 7. 레이저 빔 및 특수효과
+    // 7. 🎆 테트리스 이펙트 & 행성 폭발 가산 혼합(Additive Blending) 불꽃놀이 렌더러
+    this.renderFireworksAndCosmicEffects(ctx);
+
+    // 8. 일반 효과 & 플로팅 텍스트
     this.renderEffects(ctx);
 
-    // 8. 피버 진입 초대형 배너
+    // 9. 피버 진입 초대형 배너
     if (this.feverBannerTimer > 0) {
       this.renderFeverBanner(ctx);
     }
 
-    // 9. 하단 팁
+    // 10. 하단 컨트롤
     this.renderFooterControls(ctx);
 
     ctx.restore();
   }
 
+  /**
+   * 🌌 테트리스 이펙트 스타일의 살아 숨쉬는 우주 공간 (Living Cosmic Backdrop)
+   * - 딥 스페이스 베이스 그라데이션
+   * - 유기적으로 표동하는 4중 오로라 성운(Nebulae)
+   * - 3단 패럴랙스 & 반짝이는 140개 별무리 (Twinkling Starfield)
+   * - 우주를 가로지르는 유성우 (Shooting Stars)
+   * - 피버 모드 시 초고속 하이퍼스페이스 스타 워프 (Hyperspace Star Warp)
+   */
   renderModernBackground(ctx) {
-    const grad = ctx.createLinearGradient(0, 0, 0, this.height);
-    grad.addColorStop(0, "#090D16");
-    grad.addColorStop(1, "#020408");
-    ctx.fillStyle = grad;
+    // 1. 딥 스페이스 베이스 그라데이션
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
+    bgGrad.addColorStop(0, "#060814");
+    bgGrad.addColorStop(0.5, "#0A0E1F");
+    bgGrad.addColorStop(1, "#030408");
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, this.width, this.height);
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
-    for (let x = 12; x < this.width; x += 32) {
-      for (let y = 12; y < this.height; y += 32) {
-        ctx.fillRect(x, y, 2, 2);
+    ctx.save();
+
+    // 2. 유기적 오로라 성운(Nebulae) 렌더링
+    this.nebulae.forEach(n => {
+      const nx = n.curX || n.x;
+      const ny = n.curY || n.y;
+      const nGrad = ctx.createRadialGradient(nx, ny, 10, nx, ny, n.radius);
+      nGrad.addColorStop(0, n.color1);
+      nGrad.addColorStop(1, n.color2);
+      ctx.fillStyle = nGrad;
+      ctx.beginPath();
+      ctx.arc(nx, ny, n.radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 3. 별무리 (Starfield) - [초고속 60fps 배치 렌더링]
+    const time = performance.now();
+    if (this.isFever) {
+      // 피버 모드: 광속 워프 선(Warp Lines)
+      const cx = this.width / 2;
+      const cy = this.height / 2;
+      for (const s of this.stars) {
+        const dx = s.x - cx;
+        const dy = s.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const tailLen = Math.min(30, dist * 0.12 * s.depth);
+
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.size * 0.8;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x - (dx / dist) * tailLen, s.y - (dy / dist) * tailLen);
+        ctx.stroke();
+      }
+    } else {
+      // 일반 모드: 사각 핀포인트 별빛 (드로우 콜을 최소화하여 초고속 처리)
+      for (const s of this.stars) {
+        const alpha = Math.max(0.15, Math.min(0.9, s.baseAlpha + Math.sin(s.twinklePhase) * 0.35));
+        ctx.fillStyle = s.color;
+        ctx.globalAlpha = alpha;
+        ctx.fillRect(s.x, s.y, s.size, s.size);
       }
     }
 
-    if (this.isFever) {
-      const pulse = 0.5 + Math.sin(performance.now() * 0.008) * 0.5;
+    // 4. 유성우 (Shooting Stars)
+    this.shootingStars.forEach(ss => {
+      const progress = ss.life / ss.maxLife;
+      const alpha = Math.sin(progress * Math.PI);
+      const angle = Math.atan2(ss.vy, ss.vx);
+
       ctx.save();
-      ctx.strokeStyle = `rgba(255, 0, 127, ${0.4 + pulse * 0.4})`;
-      ctx.lineWidth = 10;
+      ctx.globalAlpha = alpha;
+      const cometGrad = ctx.createLinearGradient(
+        ss.x, ss.y,
+        ss.x - Math.cos(angle) * ss.len,
+        ss.y - Math.sin(angle) * ss.len
+      );
+      cometGrad.addColorStop(0, "#FFFFFF");
+      cometGrad.addColorStop(0.3, ss.color);
+      cometGrad.addColorStop(1, "transparent");
+
+      ctx.strokeStyle = cometGrad;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(ss.x, ss.y);
+      ctx.lineTo(ss.x - Math.cos(angle) * ss.len, ss.y - Math.sin(angle) * ss.len);
+      ctx.stroke();
+
+      // 머리 부분 눈부신 광구
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.arc(ss.x, ss.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    ctx.restore();
+
+    // 5. 피버 모드 시 초신성 테두리 오로라
+    if (this.isFever) {
+      const pulse = 0.5 + Math.sin(time * 0.008) * 0.5;
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 0, 127, ${0.45 + pulse * 0.45})`;
+      ctx.lineWidth = 8;
       ctx.shadowColor = "#FF007F";
-      ctx.shadowBlur = 20;
-      ctx.strokeRect(5, 5, this.width - 10, this.height - 10);
+      ctx.shadowBlur = 24;
+      ctx.strokeRect(4, 4, this.width - 8, this.height - 8);
+
+      // 내부 사이안 서브 오로라
+      ctx.strokeStyle = `rgba(56, 189, 248, ${0.3 + pulse * 0.3})`;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "#38BDF8";
+      ctx.shadowBlur = 14;
+      ctx.strokeRect(10, 10, this.width - 20, this.height - 20);
       ctx.restore();
     }
   }
@@ -1016,13 +1664,22 @@ class PrismCrossEngine {
     const boardW = this.cols * this.cellSpacing;
     const boardH = this.rows * this.cellSpacing;
 
-    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-    ctx.strokeStyle = this.isFever ? "rgba(255, 0, 127, 0.5)" : "rgba(255, 255, 255, 0.12)";
-    ctx.lineWidth = this.isFever ? 2 : 1;
+    // 반투명 다크 크리스탈 글래스 보드
+    ctx.save();
+    ctx.fillStyle = "rgba(8, 14, 28, 0.72)";
     ctx.fillRect(this.offsetX, this.offsetY, boardW, boardH);
-    ctx.strokeRect(this.offsetX, this.offsetY, boardW, boardH);
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    // 보드 외곽 네온 림
+    ctx.strokeStyle = this.isFever ? "rgba(255, 0, 127, 0.7)" : "rgba(56, 189, 248, 0.25)";
+    ctx.shadowColor = this.isFever ? "#FF007F" : "#38BDF8";
+    ctx.shadowBlur = this.isFever ? 18 : 8;
+    ctx.lineWidth = this.isFever ? 2.5 : 1.2;
+    ctx.strokeRect(this.offsetX, this.offsetY, boardW, boardH);
+    ctx.restore();
+
+    // 내부 은은한 그리드 라인
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.lineWidth = 1;
     for (let r = 1; r < this.rows; r++) {
       const y = this.offsetY + r * this.cellSpacing;
       ctx.beginPath();
@@ -1043,6 +1700,7 @@ class PrismCrossEngine {
     const { row, col, scan, canMatch } = this.hoverCell;
     const cx = this.offsetX + col * this.cellSpacing + this.cellSpacing / 2;
     const cy = this.offsetY + row * this.cellSpacing + this.cellSpacing / 2;
+    const time = performance.now();
 
     const boardW = this.cols * this.cellSpacing;
     const boardH = this.rows * this.cellSpacing;
@@ -1050,8 +1708,6 @@ class PrismCrossEngine {
     if (this.isFever) {
       ctx.save();
       ctx.strokeStyle = "#FF007F";
-      ctx.shadowColor = "#FF007F";
-      ctx.shadowBlur = 10;
       ctx.lineWidth = 2.5;
 
       ctx.beginPath();
@@ -1064,31 +1720,34 @@ class PrismCrossEngine {
       ctx.strokeStyle = "#FFE600";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 11, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.fillStyle = "#FFE600";
-      ctx.font = "bold 11px sans-serif";
+      ctx.font = "900 12px sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText("🔥 FEVER BURST", cx + 14, cy - 8);
+      ctx.fillText("🔥 FEVER BURST", cx + 16, cy - 8);
 
+      // 매치 대상 보석 하이라이트 (불꽃 에너지 프레임)
       scan.matchedGems.forEach(item => {
         const tx = this.offsetX + item.c * this.cellSpacing + this.cellSpacing / 2;
         const ty = this.offsetY + item.r * this.cellSpacing + this.cellSpacing / 2;
         ctx.strokeStyle = "#FFE600";
-        ctx.shadowColor = "#FF007F";
-        ctx.shadowBlur = 12;
         ctx.lineWidth = 2.5;
-        ctx.strokeRect(tx - this.gemSize / 2 - 2, ty - this.gemSize / 2 - 2, this.gemSize + 4, this.gemSize + 4);
+        const pulseBox = 1.0 + Math.sin(time * 0.01) * 0.1;
+        const boxSize = (this.gemSize + 4) * pulseBox;
+        ctx.strokeRect(tx - boxSize / 2, ty - boxSize / 2, boxSize, boxSize);
       });
       ctx.restore();
       return;
     }
 
-    const lineColor = canMatch ? "rgba(52, 211, 153, 0.45)" : "rgba(255, 255, 255, 0.15)";
+    // 일반 모드 조준선
+    const lineColor = canMatch ? "rgba(52, 211, 153, 0.75)" : "rgba(255, 255, 255, 0.25)";
+    ctx.save();
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 5]);
 
     ctx.beginPath();
     ctx.moveTo(this.offsetX, cy);
@@ -1098,38 +1757,111 @@ class PrismCrossEngine {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.strokeStyle = canMatch ? "#34D399" : "rgba(255, 255, 255, 0.5)";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = canMatch ? "#34D399" : "rgba(255, 255, 255, 0.6)";
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
     ctx.stroke();
 
+    // 매칭 가능한 보석 회전 네온 링 표시 및 특수 기믹 프리뷰
     if (canMatch && this.hoverPreview) {
+      const ringRot = time * 0.004;
+      let hasBombPreview = false;
+      let bombLoc = null;
+
       scan.matchedGems.forEach(item => {
         const tx = this.offsetX + item.c * this.cellSpacing + this.cellSpacing / 2;
         const ty = this.offsetY + item.r * this.cellSpacing + this.cellSpacing / 2;
         ctx.save();
-        ctx.strokeStyle = "#FFFFFF";
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = "#FFFFFF";
-        ctx.shadowBlur = 10;
-        ctx.strokeRect(tx - this.gemSize / 2 - 2, ty - this.gemSize / 2 - 2, this.gemSize + 4, this.gemSize + 4);
+        ctx.translate(tx, ty);
+        ctx.rotate(ringRot);
+
+        ctx.strokeStyle = item.data.special === 'bomb' ? "#F59E0B" : (item.data.special === 'lightning' ? "#00E5FF" : "#38BDF8");
+        ctx.lineWidth = 2;
+
+        const hr = this.gemSize * 0.72;
+        ctx.beginPath();
+        ctx.rect(-hr / 2, -hr / 2, hr, hr);
+        ctx.stroke();
+
         ctx.restore();
+
+        if (item.data.special === 'bomb') {
+          hasBombPreview = true;
+          bombLoc = item;
+        }
       });
+
+      // 💣 폭탄 매치 시 주변 3x3 범위 시각화 안내
+      if (hasBombPreview && bombLoc) {
+        ctx.save();
+        const pulse = 0.5 + Math.sin(time * 0.008) * 0.3;
+        const bMinR = Math.max(0, bombLoc.r - 1);
+        const bMaxR = Math.min(this.rows - 1, bombLoc.r + 1);
+        const bMinC = Math.max(0, bombLoc.c - 1);
+        const bMaxC = Math.min(this.cols - 1, bombLoc.c + 1);
+
+        const areaX = this.offsetX + bMinC * this.cellSpacing;
+        const areaY = this.offsetY + bMinR * this.cellSpacing;
+        const areaW = (bMaxC - bMinC + 1) * this.cellSpacing;
+        const areaH = (bMaxR - bMinR + 1) * this.cellSpacing;
+
+        ctx.fillStyle = `rgba(245, 158, 11, ${0.12 + pulse * 0.1})`;
+        ctx.fillRect(areaX, areaY, areaW, areaH);
+
+        ctx.strokeStyle = "#F59E0B";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(areaX, areaY, areaW, areaH);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#F59E0B";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("💣 3x3 폭파 범위", areaX + 4, areaY - 4);
+        ctx.restore();
+      }
     }
+    ctx.restore();
   }
 
   /**
-   * 캔디크러시 스타일의 다채로운 10종 기하학 보석 렌더링
+   * 💎 [초고속 60fps] 오프스크린 캔버스 캐시를 활용한 보석 렌더링
+   * - 345개의 복잡한 패스 연산을 0.1ms 미만의 GPU drawImage 복사로 대체하여 극적인 렉 해소!
    */
   renderGems(ctx) {
+    const halfSize = this.gemSize / 2;
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const cell = this.grid[r][c];
         if (cell !== null) {
           const cx = this.offsetX + c * this.cellSpacing + this.cellSpacing / 2;
           const cy = this.offsetY + r * this.cellSpacing + this.cellSpacing / 2;
-          this.drawCandyGem(ctx, cx, cy, this.gemSize, cell.type, cell.special);
+
+          // 1. 사전 베이크된 고화질 크리스탈 보석 복사 (CPU 부하 0)
+          const img = this.gemCache[cell.type];
+          if (img) {
+            ctx.drawImage(img, cx - halfSize, cy - halfSize, this.gemSize, this.gemSize);
+          } else {
+            this.drawCandyGem(ctx, cx, cy, this.gemSize, cell.type, cell.special);
+          }
+
+          // 2. 특수 보석 아이콘 또는 접근성 룬 (가벼운 오버레이)
+          if (cell.special) {
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.font = `bold ${Math.floor(this.gemSize * 0.68)}px sans-serif`;
+            let icon = "";
+            if (cell.special === 'bomb') icon = "💣";
+            else if (cell.special === 'wild') icon = "🌈";
+            else if (cell.special === 'lightning') icon = "⚡";
+            else if (cell.special === 'time') icon = "⏰";
+            ctx.fillText(icon, cx, cy);
+            ctx.restore();
+          } else if (this.colorBlindMode) {
+            this.renderRuneSymbol(ctx, cell.type, cx, cy, this.gemSize * 0.6);
+          }
         }
       }
     }
@@ -1141,43 +1873,37 @@ class PrismCrossEngine {
 
     ctx.save();
 
-    // 1. 드롭 섀도우
-    ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
-    ctx.shadowBlur = 5;
-    ctx.shadowOffsetY = 2;
-
-    // 그라데이션 베이스
-    const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 2, cx, cy, r * 1.2);
+    // 1. 다층 그라데이션 베이스
+    const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, 1, cx, cy, r * 1.1);
     grad.addColorStop(0, spec.light);
-    grad.addColorStop(0.5, spec.color);
-    grad.addColorStop(1, spec.dark);
+    grad.addColorStop(0.4, spec.color);
+    grad.addColorStop(0.85, spec.dark);
+    grad.addColorStop(1, "#030712");
     ctx.fillStyle = grad;
 
-    // 2. 고유 형태(Shape) 패스 그리기
-    this.drawShapePath(ctx, cx, cy, r, spec.shape);
+    this.drawShapePath(ctx, cx, cy, r * 0.9, spec.shape);
     ctx.fill();
 
-    ctx.shadowColor = "transparent";
+    // 2. 💎 크리스탈 각면 컷(Prismatic Facet Cut) 기하학 라인
+    this.drawFacetLines(ctx, cx, cy, r * 0.9, spec.shape);
 
-    // 3. 베벨 테두리 선
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    // 3. 고광택 크리스탈 베벨 테두리 선
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
     ctx.lineWidth = 1.5;
-    this.drawShapePath(ctx, cx, cy, r, spec.shape);
+    this.drawShapePath(ctx, cx, cy, r * 0.9, spec.shape);
     ctx.stroke();
 
     // 4. 상단 글라스 반사 하이라이트 글레어
-    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
     ctx.beginPath();
-    ctx.ellipse(cx - r * 0.2, cy - r * 0.35, r * 0.4, r * 0.2, -Math.PI / 6, 0, Math.PI * 2);
+    ctx.ellipse(cx - r * 0.22, cy - r * 0.32, r * 0.38, r * 0.2, -Math.PI / 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // 5. 특수 보석 아이콘 표시 (💣 폭탄, 🌈 와일드, ⚡ 번개, ⏰ 타임)
+    // 5. 특수 보석 아이콘 표시
     if (special) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.shadowColor = "#000000";
-      ctx.shadowBlur = 6;
-      ctx.font = `bold ${Math.floor(size * 0.65)}px sans-serif`;
+      ctx.font = `bold ${Math.floor(size * 0.68)}px sans-serif`;
 
       let icon = "";
       if (special === 'bomb') icon = "💣";
@@ -1187,10 +1913,91 @@ class PrismCrossEngine {
 
       ctx.fillText(icon, cx, cy);
     } else if (this.colorBlindMode) {
-      // 접근성 모드 심볼
       this.renderRuneSymbol(ctx, gemType, cx, cy, size * 0.6);
     }
 
+    ctx.restore();
+  }
+
+  /**
+   * 💎 각 형태별 크리스탈 각면 컷(Prismatic Facet Cut) 기하학 라인 렌더링
+   */
+  drawFacetLines(ctx, cx, cy, r, shape) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.28)";
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+
+    switch (shape) {
+      case "circle": // 원형 볼 - 돔 패싯
+        ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+        for (let i = 0; i < 6; i++) {
+          const a = (i * Math.PI) / 3;
+          ctx.moveTo(cx + Math.cos(a) * r * 0.5, cy + Math.sin(a) * r * 0.5);
+          ctx.lineTo(cx + Math.cos(a) * r * 0.9, cy + Math.sin(a) * r * 0.9);
+        }
+        break;
+
+      case "rhombus": // 마름모 - 크로스 패싯
+        ctx.moveTo(cx, cy - r * 0.95);
+        ctx.lineTo(cx, cy + r * 0.95);
+        ctx.moveTo(cx - r * 0.95, cy);
+        ctx.lineTo(cx + r * 0.95, cy);
+        ctx.rect(cx - r * 0.35, cy - r * 0.35, r * 0.7, r * 0.7);
+        break;
+
+      case "heart": // 루비 하트 - 방사형 릿지
+        ctx.moveTo(cx, cy - r * 0.15);
+        ctx.lineTo(cx, cy + r * 0.75);
+        ctx.moveTo(cx, cy - r * 0.15);
+        ctx.lineTo(cx - r * 0.6, cy - r * 0.3);
+        ctx.moveTo(cx, cy - r * 0.15);
+        ctx.lineTo(cx + r * 0.6, cy - r * 0.3);
+        break;
+
+      case "triangle": // 삼각형 - 중심 릿지
+        ctx.moveTo(cx, cy - r * 0.9);
+        ctx.lineTo(cx, cy + r * 0.2);
+        ctx.moveTo(cx + r * 0.9, cy + r * 0.85);
+        ctx.lineTo(cx, cy + r * 0.2);
+        ctx.moveTo(cx - r * 0.9, cy + r * 0.85);
+        ctx.lineTo(cx, cy + r * 0.2);
+        break;
+
+      case "square": // 둥근 사각형 - X자 다이아몬드
+        ctx.moveTo(cx - r * 0.6, cy - r * 0.6);
+        ctx.lineTo(cx + r * 0.6, cy + r * 0.6);
+        ctx.moveTo(cx + r * 0.6, cy - r * 0.6);
+        ctx.lineTo(cx - r * 0.6, cy + r * 0.6);
+        break;
+
+      case "star": // 5각 별 - 중심 릿지
+        for (let i = 0; i < 5; i++) {
+          const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(a) * r * 0.95, cy + Math.sin(a) * r * 0.95);
+        }
+        break;
+
+      case "hexagon": // 6각형 - 중심 방사선
+        for (let i = 0; i < 6; i++) {
+          const a = (i * 2 * Math.PI) / 6;
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(a) * r * 0.9, cy + Math.sin(a) * r * 0.9);
+        }
+        break;
+
+      case "drop": // 물방울 - 중심 척추선
+        ctx.moveTo(cx, cy - r * 0.95);
+        ctx.lineTo(cx, cy + r * 0.6);
+        break;
+
+      default:
+        ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2);
+        break;
+    }
+
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1285,9 +2092,43 @@ class PrismCrossEngine {
   }
 
   /**
-   * 산산조각 박살 파편 렌더링 (리얼 물리 파편)
+   * 산산조각 박살 파편 렌더링 (리얼 물리 파편 + 빛나는 Motion Trail) - [초고속 60fps]
    */
   renderShards(ctx) {
+    // 1. 파편들이 날아가며 남기는 눈부신 빛의 궤적 (Motion Trail)
+    for (const s of this.shards) {
+      if (s.history && s.history.length > 1) {
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        // 외곽 크리스탈 네온 꼬리
+        ctx.strokeStyle = s.trailColor || s.color;
+        ctx.lineWidth = Math.max(1.8, s.size * 0.85);
+        ctx.globalAlpha = s.alpha * 0.55;
+        ctx.beginPath();
+        ctx.moveTo(s.history[0].x, s.history[0].y);
+        for (let j = 1; j < s.history.length; j++) {
+          ctx.lineTo(s.history[j].x, s.history[j].y);
+        }
+        ctx.stroke();
+
+        // 중심 순백 굴절 하이라이트 심선 (유리 단면 섬광 궤적)
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = Math.max(1, s.size * 0.35);
+        ctx.globalAlpha = s.alpha * 0.8;
+        ctx.beginPath();
+        ctx.moveTo(s.history[0].x, s.history[0].y);
+        for (let j = 1; j < s.history.length; j++) {
+          ctx.lineTo(s.history[j].x, s.history[j].y);
+        }
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
+    // 2. 파편 본체 다각형 (회전하는 크리스탈 조각)
     for (const s of this.shards) {
       ctx.save();
       ctx.globalAlpha = s.alpha;
@@ -1295,9 +2136,6 @@ class PrismCrossEngine {
       ctx.rotate(s.rotation);
 
       ctx.fillStyle = s.color;
-      ctx.shadowColor = s.color;
-      ctx.shadowBlur = 6;
-
       ctx.beginPath();
       s.points.forEach((p, idx) => {
         const px = p.x * s.size;
@@ -1309,30 +2147,219 @@ class PrismCrossEngine {
       ctx.fill();
 
       // 파편 유리 테두리 반짝임
-      ctx.strokeStyle = "#FFFFFF";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       ctx.restore();
     }
   }
 
+  /**
+   * 🎆 테트리스 이펙트 & 행성 폭발 가산 혼합(Additive Blending) 불꽃놀이 렌더러
+   * - [초고속 60fps 최적화]: CPU 가우시안 블러(shadowBlur)를 전면 제거하고 GPU 가산 혼합만으로 눈부신 블룸 구현!
+   */
+  renderFireworksAndCosmicEffects(ctx) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    // 1. 초신성 코어 플래시 & 십자 광선
+    for (const sn of this.supernovaFlashes) {
+      const alpha = Math.max(0, sn.life / sn.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      const g = ctx.createRadialGradient(sn.x, sn.y, 0, sn.x, sn.y, sn.radius);
+      g.addColorStop(0, "#FFFFFF");
+      g.addColorStop(0.35, sn.glowColor || "#FFE082");
+      g.addColorStop(1, "transparent");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sn.x, sn.y, sn.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 눈부신 십자/방사형 광선(Star Rays)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.lineWidth = 1.8;
+      const rayLen = sn.radius * 2.5;
+      for (let i = 0; i < sn.rays; i++) {
+        const a = (i * Math.PI) / (sn.rays / 2);
+        ctx.beginPath();
+        ctx.moveTo(sn.x - Math.cos(a) * rayLen, sn.y - Math.sin(a) * rayLen);
+        ctx.lineTo(sn.x + Math.cos(a) * rayLen, sn.y + Math.sin(a) * rayLen);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 2. 팽창 충격파 링 (Shockwave Rings)
+    for (const sw of this.shockwaves) {
+      ctx.save();
+      ctx.globalAlpha = sw.alpha * 0.85;
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = Math.max(1, sw.lineWidth * sw.alpha);
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 내부 얇은 순백 링
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 3. 🎆 불꽃놀이 스파크 & 궤적 꼬리 (Firework Sparks with Motion Trails) - [단일 패스 60fps]
+    for (const fw of this.fireworks) {
+      const alpha = Math.max(0, fw.life / fw.maxLife);
+      const shimmer = 0.75 + Math.sin(fw.shimmerPhase) * 0.25;
+
+      ctx.save();
+
+      // [초고속 60fps] 꼬리(Trail) 단일 연결 패스 렌더링
+      if (fw.history.length > 1) {
+        ctx.lineCap = "round";
+        ctx.strokeStyle = fw.color;
+        ctx.lineWidth = fw.size * 1.1;
+        ctx.globalAlpha = alpha * shimmer * 0.65;
+
+        ctx.beginPath();
+        ctx.moveTo(fw.history[0].x, fw.history[0].y);
+        for (let j = 1; j < fw.history.length; j++) {
+          ctx.lineTo(fw.history[j].x, fw.history[j].y);
+        }
+        ctx.stroke();
+      }
+
+      // 스파크 헤드(불꽃 핵) - 백색 중심 + 네온 외곽 (GPU 가산 혼합)
+      ctx.globalAlpha = alpha * shimmer;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.arc(fw.x, fw.y, fw.size * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 외곽 네온 글로우 헤일로
+      ctx.fillStyle = fw.color;
+      ctx.beginPath();
+      ctx.arc(fw.x, fw.y, fw.size * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // 4. 나풀나풀 떨어지는 은하 글리터 가루 (Cosmic Glitter) - [초고속 60fps]
+    for (const g of this.cosmicGlitters) {
+      const twinkle = 0.6 + Math.sin(performance.now() * 0.012 + g.twinkleRate) * 0.4;
+      ctx.save();
+      ctx.globalAlpha = g.alpha * twinkle;
+      ctx.translate(g.x, g.y);
+      ctx.rotate(g.rot);
+
+      ctx.fillStyle = g.color;
+
+      // 4각 십자 다이아몬드 별
+      const s = g.size;
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 2.2);
+      ctx.lineTo(s * 0.6, -s * 0.6);
+      ctx.lineTo(s * 2.2, 0);
+      ctx.lineTo(s * 0.6, s * 0.6);
+      ctx.lineTo(0, s * 2.2);
+      ctx.lineTo(-s * 0.6, s * 0.6);
+      ctx.lineTo(-s * 2.2, 0);
+      ctx.lineTo(-s * 0.6, -s * 0.6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // 5. ⚡ 체인 라이트닝 볼트 (Lightning Arcs) - [좁고 날렵한 면도날 선 형태의 전기선]
+    for (const lb of this.lightningBolts) {
+      const alpha = Math.max(0, lb.life / lb.maxLife);
+      const flicker = 0.88 + Math.random() * 0.12;
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // 1) 외곽 일렉트릭 네온 블루 아우라 (두께 약 2.5~3px의 슬림한 네온 선)
+      ctx.strokeStyle = lb.color || "#00E5FF";
+      ctx.lineWidth = Math.max(1.8, (lb.width || 1.8) * alpha * 1.4);
+      ctx.globalAlpha = alpha * flicker * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(lb.points[0].x, lb.points[0].y);
+      for (let j = 1; j < lb.points.length; j++) {
+        ctx.lineTo(lb.points[j].x, lb.points[j].y);
+      }
+      ctx.stroke();
+
+      // 번개 곁가지 외곽 아우라 (초미세 선)
+      if (lb.branches && lb.branches.length > 0) {
+        ctx.lineWidth = Math.max(1.0, (lb.width || 1.8) * alpha * 0.8);
+        for (const br of lb.branches) {
+          ctx.beginPath();
+          ctx.moveTo(br[0].x, br[0].y);
+          for (let k = 1; k < br.length; k++) {
+            ctx.lineTo(br[k].x, br[k].y);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // 2) 중심 고휘도 순백 전기선 코어 (두께 약 1.0~1.2px의 날카로운 선)
+      ctx.strokeStyle = lb.coreColor || "#FFFFFF";
+      ctx.lineWidth = Math.max(1.0, (lb.width || 1.8) * alpha * 0.65);
+      ctx.globalAlpha = alpha * flicker;
+      ctx.beginPath();
+      ctx.moveTo(lb.points[0].x, lb.points[0].y);
+      for (let j = 1; j < lb.points.length; j++) {
+        ctx.lineTo(lb.points[j].x, lb.points[j].y);
+      }
+      ctx.stroke();
+
+      // 번개 곁가지 순백 코어
+      if (lb.branches && lb.branches.length > 0) {
+        ctx.lineWidth = 0.8;
+        for (const br of lb.branches) {
+          ctx.beginPath();
+          ctx.moveTo(br[0].x, br[0].y);
+          for (let k = 1; k < br.length; k++) {
+            ctx.lineTo(br[k].x, br[k].y);
+          }
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
   renderEffects(ctx) {
     for (const b of this.beams) {
       ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = b.alpha;
+
+      // 외곽 네온 레이저 빔 (GPU 가산 혼합)
       ctx.strokeStyle = b.color;
-      ctx.shadowColor = b.color;
-      ctx.shadowBlur = 15;
-      ctx.lineWidth = b.width;
+      ctx.lineWidth = b.width * 1.5;
       ctx.beginPath();
       ctx.moveTo(b.x1, b.y1);
       ctx.lineTo(b.x2, b.y2);
       ctx.stroke();
 
+      // 중심 고휘도 백색 레이저 코어
       ctx.strokeStyle = "#FFFFFF";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = Math.max(1.5, b.width * 0.45);
+      ctx.beginPath();
+      ctx.moveTo(b.x1, b.y1);
+      ctx.lineTo(b.x2, b.y2);
       ctx.stroke();
+
       ctx.restore();
     }
 

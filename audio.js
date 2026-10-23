@@ -119,6 +119,9 @@ class GemSoundEngine {
       harmOsc.start(t + 0.03);
       harmOsc.stop(t + 0.4);
     }
+
+    // 테트리스 이펙트 스타일 불꽃놀이 크랙클 하모닉스
+    this.playFireworkCrackle(Math.min(0.7, 0.2 + combo * 0.08));
   }
 
   /**
@@ -133,16 +136,108 @@ class GemSoundEngine {
     const boom = this.ctx.createOscillator();
     const boomGain = this.ctx.createGain();
     boom.type = 'sawtooth';
-    boom.frequency.setValueAtTime(150, t);
-    boom.frequency.exponentialRampToValueAtTime(30, t + 0.35);
+    boom.frequency.setValueAtTime(160, t);
+    boom.frequency.exponentialRampToValueAtTime(25, t + 0.5);
 
-    boomGain.gain.setValueAtTime(0.6 * this.volume, t);
-    boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    boomGain.gain.setValueAtTime(0.7 * this.volume, t);
+    boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
 
     boom.connect(boomGain);
     boomGain.connect(this.ctx.destination);
     boom.start(t);
-    boom.stop(t + 0.42);
+    boom.stop(t + 0.58);
+
+    // 불꽃놀이 크랙클 연동
+    this.playFireworkCrackle(0.5);
+  }
+
+  /**
+   * ⚡ 체인 라이트닝 / 전기 타일 방전 사운드
+   * - 찌지지직! 감전되는 전기 아크 노이즈와 고주파 스파크
+   */
+  playLightningSound() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // 1. 전기 지지직 노이즈
+    const dur = 0.25;
+    const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.sin(i * 0.05);
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(3500, t);
+    filter.Q.setValueAtTime(4.0, t);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.45 * this.volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    noise.start(t);
+
+    // 2. 전기 아크 고주파 피치 잽
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(900, t);
+    osc.frequency.exponentialRampToValueAtTime(80, t + 0.2);
+
+    oscGain.gain.setValueAtTime(0.3 * this.volume, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.23);
+  }
+
+  /**
+   * 🎆 테트리스 이펙트 & 불꽃놀이 폭죽 크랙클(Crackle) & 스타버스트 사운드
+   * - 쏟아지는 불꽃 스파크의 타다닥 거리는 감미로운 고주파 잔향
+   */
+  playFireworkCrackle(intensity = 0.3) {
+    if (this.muted || !this.ctx) return;
+    const t = this.ctx.currentTime;
+
+    // 크랙클 노이즈 버퍼 (불꽃놀이 스파크 타다닥 소리)
+    const dur = 0.45;
+    const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      // 듬성듬성 스파크가 튀는 크랙클 분포
+      if (Math.random() < 0.08) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 1.5);
+      } else {
+        data[i] = 0;
+      }
+    }
+    const crackleSource = this.ctx.createBufferSource();
+    crackleSource.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(3200, t);
+    filter.Q.setValueAtTime(3.0, t);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(intensity * 0.4 * this.volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    crackleSource.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    crackleSource.start(t + 0.04);
   }
 
   /**
@@ -253,6 +348,9 @@ class GemSoundEngine {
     boomGain.connect(this.ctx.destination);
     boom.start(t);
     boom.stop(t + 0.42);
+
+    // 피버 대폭발 불꽃놀이 크랙클
+    this.playFireworkCrackle(0.65);
   }
 
   playShuffleSound() {
