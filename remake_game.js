@@ -61,6 +61,7 @@ class PrismCrossEngine {
     this.timeStart = null;
     this.isPlaying = false;
     this.isGameOver = false;
+    this.isPaused = false;
 
     // 편의 기능 토글
     this.smartGuide = true;
@@ -131,8 +132,22 @@ class PrismCrossEngine {
     }
   }
 
+  pause() {
+    this.isPaused = true;
+  }
+
+  resume() {
+    this.isPaused = false;
+  }
+
+  togglePause() {
+    this.isPaused = !this.isPaused;
+    return this.isPaused;
+  }
+
   startNewGame(mode = this.mode) {
     this.mode = mode;
+    this.isPaused = false;
     const cfg = this.modesConfig[mode];
 
     this.cols = cfg.cols;
@@ -553,7 +568,7 @@ class PrismCrossEngine {
   }
 
   handleMouseMove(mx, my) {
-    if (!this.isPlaying || this.isGameOver) {
+    if (this.isPaused || !this.isPlaying || this.isGameOver) {
       this.hoverCell = null;
       return;
     }
@@ -575,7 +590,7 @@ class PrismCrossEngine {
   }
 
   handleClick(mx, my) {
-    if (this.isGameOver) return;
+    if (this.isPaused || this.isGameOver) return;
 
     const c = Math.floor((mx - this.offsetX) / this.cellSpacing);
     const r = Math.floor((my - this.offsetY) / this.cellSpacing);
@@ -1207,6 +1222,8 @@ class PrismCrossEngine {
   }
 
   update(dt) {
+    if (this.isPaused) return;
+
     if (this.isPlaying && !this.isGameOver && this.timeStart !== null && this.mode !== 'zen') {
       this.timeRemain -= dt;
       if (this.timeRemain <= 0) {
@@ -1455,6 +1472,45 @@ class PrismCrossEngine {
 
     // 10. 하단 컨트롤
     this.renderFooterControls(ctx);
+
+    // 11. 일시정지 디밍 오버레이
+    if (this.isPaused) {
+      this.renderPauseOverlay(ctx);
+    }
+
+    ctx.restore();
+  }
+
+  renderPauseOverlay(ctx) {
+    ctx.save();
+    ctx.fillStyle = "rgba(4, 6, 16, 0.75)";
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const pw = 420;
+    const ph = 150;
+    const px = (this.width - pw) / 2;
+    const py = (this.height - ph) / 2;
+
+    ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+    ctx.lineWidth = 2;
+    this.drawRoundedRectPath(ctx, px, py, pw, ph, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#38BDF8";
+    ctx.font = "900 34px 'Inter', sans-serif";
+    ctx.shadowColor = "#38BDF8";
+    ctx.shadowBlur = 18;
+    ctx.fillText("⏸️ GAME PAUSED", this.width / 2, this.height / 2 - 20);
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#94A3B8";
+    ctx.font = "600 15px 'Inter', sans-serif";
+    ctx.fillText("게임이 일시정지 되었습니다", this.width / 2, this.height / 2 + 25);
 
     ctx.restore();
   }

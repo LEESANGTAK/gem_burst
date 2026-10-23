@@ -1,18 +1,25 @@
 /**
  * Prism Cross: Gem Burst 메인 컨트롤러 (Scene & Option Manager)
+ * - 앱스토어 프리미엄 감성의 통합 씬 라우팅 & 일시정지 시스템
  */
 
 let gameEngine = null;
 let currentLanguage = 'ko';
+let currentScene = 'menu';
+
+const MODE_META = {
+  special: { icon: "🌟", nameKo: "특수 젬 크러시", nameEn: "Special Crush" },
+  mega: { icon: "🪐", nameKo: "메가 버스트 (300타일)", nameEn: "Mega Burst (300)" },
+  arcade: { icon: "⚡", nameKo: "아케이드 피버", nameEn: "Arcade Fever" },
+  zen: { icon: "🧘", nameKo: "젠 힐링 모드", nameEn: "Zen Healing" },
+  classic: { icon: "🎯", nameKo: "클래식 타임어택", nameEn: "Classic Attack" },
+  mini: { icon: "🧩", nameKo: "미니 퀘스트", nameEn: "Mini Quest" }
+};
 
 const I18N = {
   ko: {
-    menuPlay: "게임 시작 (Play)",
-    menuPlaySub: "6가지 다채로운 모드 선택 및 도전",
-    menuOptions: "환경 설정 (Options)",
-    menuOptionsSub: "언어, 사운드 BGM/SFX, 가이드 조준선",
-    menuHowTo: "게임 룰 & 공략 (How to Play)",
-    menuHowToSub: "십자 매칭 규칙과 콤보 비법",
+    menuPlay: "게임 시작 (PLAY)",
+    menuPlaySub: "6가지 모드 선택 & 즉시 도전",
     modeModalTitle: "🎮 게임 모드 선택 (Game Modes)",
     modeModalSub: "플레이하고 싶은 퍼즐 모드를 선택하세요.",
     settingsTitle: "⚙️ 환경 설정 (Options)",
@@ -28,12 +35,8 @@ const I18N = {
     optScreenShake: "📳 화면 흔들림 효과 (Screen Shake)"
   },
   en: {
-    menuPlay: "Play Game",
+    menuPlay: "PLAY GAME",
     menuPlaySub: "Choose from 6 unique game modes",
-    menuOptions: "Settings",
-    menuOptionsSub: "Language, Sound BGM/SFX, Guide Laser",
-    menuHowTo: "How to Play",
-    menuHowToSub: "Cross-matching rules & combo mastery",
     modeModalTitle: "🎮 Select Game Mode",
     modeModalSub: "Select the puzzle mode you want to play.",
     settingsTitle: "⚙️ Settings & Options",
@@ -61,100 +64,219 @@ window.addEventListener('DOMContentLoaded', () => {
   window.onGameEnd = (report) => {
     showResultModal(report);
   };
+
+  // 키보드 단축키 (ESC로 일시정지/모달닫기 토글)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const activeModal = document.querySelector('.modal-overlay.active');
+      if (activeModal) {
+        activeModal.classList.remove('active');
+        if (gameEngine && currentScene === 'game') gameEngine.resume();
+      } else if (currentScene === 'game') {
+        openPauseModal();
+      }
+    }
+  });
 });
 
-function switchMainTab(tabName) {
-  document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.game-view').forEach(view => view.classList.remove('active'));
+/* ================== 씬 전환 관리 ================== */
 
-  const viewIdMap = {
-    menu: 'viewMenu',
-    game: 'viewGame',
-    howto: 'viewHowTo',
-    legal: 'viewLegal'
-  };
-  const tabIdMap = {
-    menu: 'tabMenu',
-    game: 'tabGame',
-    howto: 'tabHowTo',
-    legal: 'tabLegal'
-  };
+function goToLobby() {
+  currentScene = 'menu';
+  document.querySelectorAll('.game-view').forEach(v => v.classList.remove('active'));
+  const menuView = document.getElementById('viewMenu');
+  if (menuView) menuView.classList.add('active');
 
-  const key = tabName.toLowerCase();
-  const targetViewId = viewIdMap[key] || ('view' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
-  const targetTabId = tabIdMap[key] || ('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+  // 헤더 상태 변경 (로비 전용 헤더)
+  const brandLogo = document.getElementById('brandLogo');
+  const btnPause = document.getElementById('btnHeaderPause');
+  const modeChip = document.getElementById('headerModeChip');
 
-  const tabBtn = document.getElementById(targetTabId);
-  if (tabBtn) {
-    tabBtn.classList.add('active');
+  if (brandLogo) brandLogo.style.display = 'flex';
+  if (btnPause) btnPause.style.display = 'none';
+  if (modeChip) modeChip.style.display = 'none';
+
+  if (gameEngine) {
+    gameEngine.pause();
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goToGame(mode = 'special') {
+  currentScene = 'game';
+  document.querySelectorAll('.game-view').forEach(v => v.classList.remove('active'));
+  const gameView = document.getElementById('viewGame');
+  if (gameView) gameView.classList.add('active');
+
+  // 헤더 상태 변경 (인게임 전용 헤더)
+  const brandLogo = document.getElementById('brandLogo');
+  const btnPause = document.getElementById('btnHeaderPause');
+  const modeChip = document.getElementById('headerModeChip');
+
+  if (brandLogo) brandLogo.style.display = 'none';
+  if (btnPause) btnPause.style.display = 'inline-flex';
+  if (modeChip) modeChip.style.display = 'inline-flex';
+
+  updateHeaderModeChip(mode);
+
+  // Zen 모드일 때만 되돌리기(Undo) 버튼 표시
+  const undoBtn = document.getElementById('btnUndo');
+  if (undoBtn) {
+    undoBtn.style.display = mode === 'zen' ? 'inline-flex' : 'none';
   }
 
-  const targetView = document.getElementById(targetViewId);
-  if (targetView) {
-    targetView.classList.add('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (gameEngine) {
+    gameEngine.setMode(mode);
   }
 
-  // 게임 화면 진입 시 BGM 자동 재생 (사용자 인터랙션 후)
-  if (key === 'game' && window.soundEngine) {
+  if (window.soundEngine) {
     window.soundEngine.startBGM();
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function switchMainTab(tabName) {
+  const key = tabName.toLowerCase();
+  if (key === 'game') {
+    goToGame(gameEngine ? gameEngine.mode : 'special');
+  } else if (key === 'menu') {
+    goToLobby();
+  } else if (key === 'howto') {
+    openHowToModal();
+  } else if (key === 'legal') {
+    openLegalModal();
+  }
+}
+
+function updateHeaderModeChip(mode) {
+  const meta = MODE_META[mode] || MODE_META.special;
+  const iconEl = document.getElementById('headerModeIcon');
+  const nameEl = document.getElementById('headerModeName');
+
+  if (iconEl) iconEl.innerText = meta.icon;
+  if (nameEl) nameEl.innerText = currentLanguage === 'en' ? meta.nameEn : meta.nameKo;
+}
+
+/* ================== 모달 제어 ================== */
+
+function openPauseModal() {
+  if (!gameEngine) return;
+  gameEngine.pause();
+
+  const modal = document.getElementById('pauseModal');
+  const infoEl = document.getElementById('pauseModeInfo');
+  if (infoEl) {
+    const meta = MODE_META[gameEngine.mode] || MODE_META.special;
+    const modeName = currentLanguage === 'en' ? meta.nameEn : meta.nameKo;
+    infoEl.innerText = `[${meta.icon} ${modeName}]  현재 점수: ${gameEngine.score.toLocaleString()} PTS`;
+  }
+  if (modal) modal.classList.add('active');
+}
+
+function closePauseModal() {
+  const modal = document.getElementById('pauseModal');
+  if (modal) modal.classList.remove('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.resume();
   }
 }
 
 function openModeSelectModal() {
   const modal = document.getElementById('modeSelectModal');
   if (modal) modal.classList.add('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.pause();
+  }
 }
 
 function closeModeSelectModal() {
   const modal = document.getElementById('modeSelectModal');
   if (modal) modal.classList.remove('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.resume();
+  }
 }
 
 function selectAndStartMode(mode) {
   closeModeSelectModal();
-  switchMainTab('game');
-  setGameMode(mode);
-}
-
-function setGameMode(mode) {
-  if (!gameEngine) return;
-
-  document.querySelectorAll('.submode-btn').forEach(btn => btn.classList.remove('active'));
-  const targetBtn = document.getElementById('submode' + mode.charAt(0).toUpperCase() + mode.slice(1));
-  if (targetBtn) {
-    targetBtn.classList.add('active');
-  }
-
-  // Zen 모드일 때만 되돌리기(Undo) 버튼 표시
-  const undoBtn = document.getElementById('btnUndo');
-  if (undoBtn) {
-    undoBtn.style.display = mode === 'zen' ? 'flex' : 'none';
-  }
-
-  // 피버 안내 배너 표시
-  const feverBanner = document.getElementById('feverGuideBanner');
-  if (feverBanner) {
-    feverBanner.style.display = (mode === 'arcade' || mode === 'special' || mode === 'mega') ? 'flex' : 'none';
-  }
-
-  gameEngine.setMode(mode);
+  closePauseModal();
+  goToGame(mode);
 }
 
 function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
   if (modal) modal.classList.add('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.pause();
+  }
 }
 
 function closeSettingsModal() {
   const modal = document.getElementById('settingsModal');
   if (modal) modal.classList.remove('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.resume();
+  }
+}
+
+function openHowToModal() {
+  const modal = document.getElementById('howToModal');
+  if (modal) modal.classList.add('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.pause();
+  }
+}
+
+function closeHowToModal() {
+  const modal = document.getElementById('howToModal');
+  if (modal) modal.classList.remove('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.resume();
+  }
+}
+
+function openLegalModal() {
+  const modal = document.getElementById('legalModal');
+  if (modal) modal.classList.add('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.pause();
+  }
+}
+
+function closeLegalModal() {
+  const modal = document.getElementById('legalModal');
+  if (modal) modal.classList.remove('active');
+  if (gameEngine && currentScene === 'game') {
+    gameEngine.resume();
+  }
+}
+
+/* ================== 헤더 퀵 토글 버튼 ================== */
+
+function toggleQuickSound() {
+  if (!window.soundEngine) return;
+  const isMuted = window.soundEngine.toggleMute();
+  const icon = document.getElementById('quickSoundIcon');
+  if (icon) {
+    icon.innerText = isMuted ? '🔇' : '🔊';
+  }
+}
+
+function toggleQuickLanguage() {
+  const nextLang = currentLanguage === 'ko' ? 'en' : 'ko';
+  setLanguage(nextLang);
 }
 
 function setLanguage(lang) {
   currentLanguage = lang;
-  document.getElementById('btnLangKo').classList.toggle('active', lang === 'ko');
-  document.getElementById('btnLangEn').classList.toggle('active', lang === 'en');
+  const quickLangText = document.getElementById('quickLangText');
+  if (quickLangText) quickLangText.innerText = lang.toUpperCase();
+
+  const btnKo = document.getElementById('btnLangKo');
+  const btnEn = document.getElementById('btnLangEn');
+  if (btnKo) btnKo.classList.toggle('active', lang === 'ko');
+  if (btnEn) btnEn.classList.toggle('active', lang === 'en');
 
   const dict = I18N[lang] || I18N.ko;
   for (const key in dict) {
@@ -162,15 +284,23 @@ function setLanguage(lang) {
     if (el) el.innerText = dict[key];
   }
 
+  if (gameEngine) {
+    updateHeaderModeChip(gameEngine.mode);
+  }
+
   saveSettings();
 }
 
+/* ================== 오디오 & 옵션 설정 ================== */
+
 function onBGMVolumeChange(val) {
   const num = parseInt(val, 10);
-  document.getElementById('bgmVolText').innerText = `${num}%`;
+  const textEl = document.getElementById('bgmVolText');
+  if (textEl) textEl.innerText = `${num}%`;
+
   if (window.soundEngine) {
     window.soundEngine.setBGMVolume(num / 100);
-    if (num > 0 && !window.soundEngine.isBGMPlaying) {
+    if (num > 0 && !window.soundEngine.isBGMPlaying && currentScene === 'game') {
       window.soundEngine.startBGM();
     }
   }
@@ -179,7 +309,9 @@ function onBGMVolumeChange(val) {
 
 function onSFXVolumeChange(val) {
   const num = parseInt(val, 10);
-  document.getElementById('sfxVolText').innerText = `${num}%`;
+  const textEl = document.getElementById('sfxVolText');
+  if (textEl) textEl.innerText = `${num}%`;
+
   if (window.soundEngine) {
     window.soundEngine.setSFXVolume(num / 100);
   }
@@ -191,16 +323,10 @@ function onSettingToggle(key, val) {
 
   if (key === 'smartGuide') {
     gameEngine.smartGuide = val;
-    const btn = document.getElementById('btnSmartGuide');
-    if (btn) btn.classList.toggle('active', val);
   } else if (key === 'hoverPreview') {
     gameEngine.hoverPreview = val;
-    const btn = document.getElementById('btnHoverPreview');
-    if (btn) btn.classList.toggle('active', val);
   } else if (key === 'colorBlind') {
     gameEngine.colorBlindMode = val;
-    const btn = document.getElementById('btnColorBlind');
-    if (btn) btn.classList.toggle('active', val);
   } else if (key === 'screenShake') {
     gameEngine.screenShakeEnabled = val;
   }
@@ -263,29 +389,7 @@ function loadSettings() {
   } catch (e) {}
 }
 
-function toggleSmartGuide() {
-  if (!gameEngine) return;
-  const next = !gameEngine.smartGuide;
-  onSettingToggle('smartGuide', next);
-  const chk = document.getElementById('chkSmartGuide');
-  if (chk) chk.checked = next;
-}
-
-function toggleHoverPreview() {
-  if (!gameEngine) return;
-  const next = !gameEngine.hoverPreview;
-  onSettingToggle('hoverPreview', next);
-  const chk = document.getElementById('chkHoverPreview');
-  if (chk) chk.checked = next;
-}
-
-function toggleColorBlind() {
-  if (!gameEngine) return;
-  const next = !gameEngine.colorBlindMode;
-  onSettingToggle('colorBlind', next);
-  const chk = document.getElementById('chkColorBlind');
-  if (chk) chk.checked = next;
-}
+/* ================== 인게임 파워업 액션 독 ================== */
 
 function triggerHint() {
   if (gameEngine) gameEngine.hint();
@@ -300,37 +404,38 @@ function triggerUndo() {
 }
 
 function restartGame() {
-  if (gameEngine) gameEngine.startNewGame();
+  if (gameEngine) {
+    gameEngine.startNewGame();
+    if (currentScene === 'game') {
+      updateHeaderModeChip(gameEngine.mode);
+    }
+  }
 }
+
+/* ================== 결과 모달 ================== */
 
 function showResultModal(report) {
   const modal = document.getElementById('resultModal');
-  const header = document.getElementById('modalHeader');
-  const title = document.getElementById('modalTitle');
-  const subtitle = document.getElementById('modalSubtitle');
-  const score = document.getElementById('modalScore');
-  const statTime = document.getElementById('statTime');
-  const statMaxCombo = document.getElementById('statMaxCombo');
-  const statAccuracy = document.getElementById('statAccuracy');
-  const statAPM = document.getElementById('statAPM');
-
   if (!modal) return;
 
+  const titleEl = document.getElementById('modalTitle');
+  const subEl = document.getElementById('modalSubtitle');
+  const scoreEl = document.getElementById('modalScore');
+
   if (report.isVictory) {
-    header.className = 'modal-header victory';
-    title.innerText = 'PERFECT CLEAR!';
-    subtitle.innerText = `모든 보석을 완벽하게 소거했습니다! (클리어율 ${report.clearRate}%)`;
+    titleEl.innerText = "🏆 ALL CLEAR! 🏆";
+    subEl.innerText = "축하합니다! 모든 보석을 완벽하게 소거했습니다!";
   } else {
-    header.className = 'modal-header timeup';
-    title.innerText = 'TIME UP';
-    subtitle.innerText = `제한 시간이 종료되었습니다. (${report.gemsCleared}/${report.totalGems}개 소거)`;
+    titleEl.innerText = "⏰ TIME OVER!";
+    subEl.innerText = "시간이 종료되었습니다. 멋진 도전이었습니다!";
   }
 
-  score.innerText = `${report.score.toLocaleString()} PTS`;
-  statTime.innerText = `${report.time}s`;
-  statMaxCombo.innerText = `${report.maxCombo}x`;
-  statAccuracy.innerText = `${report.accuracy}%`;
-  statAPM.innerText = `${report.apm}`;
+  scoreEl.innerText = `${report.score.toLocaleString()} PTS`;
+
+  document.getElementById('statTime').innerText = `${report.time}s`;
+  document.getElementById('statMaxCombo').innerText = `${report.maxCombo}x`;
+  document.getElementById('statAccuracy').innerText = `${report.accuracy}%`;
+  document.getElementById('statAPM').innerText = `${report.apm}`;
 
   modal.classList.add('active');
 }

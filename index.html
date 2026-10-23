@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>프리즘 크로스: 젬 버스트 (Prism Cross: Gem Burst)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,247 +11,210 @@
 </head>
 <body>
 
-  <!-- 최상단 헤더 -->
-  <header>
-    <div class="logo-area" onclick="switchMainTab('menu')" style="cursor: pointer;">
-      <div class="logo-icon">💎</div>
-      <div class="logo-title">
-        <h1>PRISM CROSS</h1>
-        <span>Gem Burst Puzzle</span>
+  <!-- 앱스토어 스타일 플로팅 통합 앱 헤더 -->
+  <header class="app-header">
+    <div class="header-left">
+      <!-- 타이틀 로비 화면 로고 -->
+      <div class="brand-logo" id="brandLogo" onclick="goToLobby()" style="cursor: pointer;">
+        <span class="brand-icon">💎</span>
+        <div class="brand-text">
+          <span class="brand-title">PRISM CROSS</span>
+          <span class="brand-sub">GEM BURST</span>
+        </div>
       </div>
+
+      <!-- 인게임 일시정지 버튼 (게임 뷰에서만 노출) -->
+      <button class="nav-icon-btn game-only-btn" id="btnHeaderPause" onclick="openPauseModal()" title="게임 일시정지 (ESC)" style="display: none;">
+        <span>⏸️</span>
+        <span class="btn-text-badge">PAUSE</span>
+      </button>
     </div>
 
-    <!-- 네비게이션 탭 -->
-    <nav class="nav-tabs">
-      <button class="nav-tab-btn active" id="tabMenu" onclick="switchMainTab('menu')">
-        🏠 메인 메뉴
+    <!-- 인게임 활성 모드 뱃지 칩 (누르면 즉시 모드 선택 모달 오픈) -->
+    <div class="header-center game-only-flex" id="headerModeChip" onclick="openModeSelectModal()" title="게임 모드 변경" style="display: none;">
+      <span class="mode-chip-icon" id="headerModeIcon">🌟</span>
+      <span class="mode-chip-name" id="headerModeName">특수 젬 크러시</span>
+      <span class="mode-chip-caret">▾</span>
+    </div>
+
+    <div class="header-right">
+      <!-- 퀵 언어 토글 (KO / EN) -->
+      <button class="header-pill-btn" id="btnQuickLang" onclick="toggleQuickLanguage()" title="언어 변경 (Language)">
+        <span id="quickLangText">KO</span>
       </button>
-      <button class="nav-tab-btn" id="tabGame" onclick="switchMainTab('game')">
-        🎮 퍼즐 플레이
+
+      <!-- 퀵 오디오 토글 (BGM/SFX 음소거) -->
+      <button class="nav-icon-btn" id="btnQuickSound" onclick="toggleQuickSound()" title="사운드 음소거 / 켜기">
+        <span id="quickSoundIcon">🔊</span>
       </button>
-      <button class="nav-tab-btn" id="tabSettings" onclick="openSettingsModal()">
-        ⚙️ 환경 설정
+
+      <!-- 환경 설정 -->
+      <button class="nav-icon-btn" onclick="openSettingsModal()" title="환경 설정 (Options)">
+        <span>⚙️</span>
       </button>
-      <button class="nav-tab-btn" id="tabHowTo" onclick="switchMainTab('howto')">
-        💡 플레이 팁 & 룰
-      </button>
-      <button class="nav-tab-btn" id="tabLegal" onclick="switchMainTab('legal')">
-        ⚖️ 컴플라이언스
-      </button>
-    </nav>
+    </div>
   </header>
 
-  <!-- 메인 콘텐츠 영역 -->
-  <main>
+  <!-- 메인 게임 스테이지 -->
+  <main class="app-main">
 
-    <!-- [뷰 0] 웅장한 메인 메뉴 씬 (Main Menu Scene) -->
+    <!-- [뷰 0] 앱스토어 스타일 메인 타이틀 로비 (Title Lobby Scene) -->
     <section class="game-view active" id="viewMenu">
-      <div class="menu-hero-card">
-        <div class="hero-gem-badge">💎</div>
-        <h1 class="hero-title">PRISM CROSS</h1>
-        <p class="hero-subtitle">Gem Burst Puzzle</p>
-        <div class="hero-desc">
-          <span>🌌 무한한 우주 공간에서 펼쳐지는 짜릿한 십자 레이저 젬 매칭 액션!</span>
-        </div>
-
-        <div class="menu-action-grid">
-          <button class="menu-btn primary" onclick="openModeSelectModal()">
-            <span class="btn-icon">🚀</span>
-            <div class="btn-text">
-              <strong id="txtMenuPlay">게임 시작 (Play)</strong>
-              <span id="txtMenuPlaySub">6가지 다채로운 모드 선택 및 도전</span>
+      <div class="lobby-stage">
+        
+        <!-- 중앙 타이틀 히어로 -->
+        <div class="lobby-hero">
+          <div class="hero-crystal-emblem">
+            <div class="emblem-gem">💎</div>
+            <div class="emblem-glow"></div>
+          </div>
+          <h1 class="game-main-title">PRISM CROSS</h1>
+          <p class="game-sub-title">CRYSTAL BURST ODYSSEY</p>
+          <p class="game-tagline">상하좌우 십자 레이저로 10종 3D 보석을 연쇄 폭파하는 프리미엄 퍼즐</p>
+          
+          <!-- 메인 게임 시작 대형 액션 버튼 -->
+          <button class="hero-play-btn" onclick="openModeSelectModal()">
+            <span class="play-icon">🚀</span>
+            <div class="play-btn-texts">
+              <strong id="txtMenuPlay">게임 시작 (PLAY)</strong>
+              <span id="txtMenuPlaySub">6가지 모드 선택 & 즉시 도전</span>
             </div>
-          </button>
-
-          <button class="menu-btn secondary" onclick="openSettingsModal()">
-            <span class="btn-icon">⚙️</span>
-            <div class="btn-text">
-              <strong id="txtMenuOptions">환경 설정 (Options)</strong>
-              <span id="txtMenuOptionsSub">언어, 사운드 BGM/SFX, 가이드 조준선</span>
-            </div>
-          </button>
-
-          <button class="menu-btn secondary" onclick="switchMainTab('howto')">
-            <span class="btn-icon">💡</span>
-            <div class="btn-text">
-              <strong id="txtMenuHowTo">게임 룰 & 공략 (How to Play)</strong>
-              <span id="txtMenuHowToSub">십자 매칭 규칙과 콤보 비법</span>
-            </div>
+            <span class="play-arrow">▶</span>
           </button>
         </div>
 
-        <div class="hero-footer-badges">
-          <span class="f-badge">✨ 10종 3D 엠보스 타일</span>
-          <span class="f-badge">📱 모바일 반응형 완벽 대응</span>
-          <span class="f-badge">⚡ 60FPS 초고속 물리 엔진</span>
+        <!-- 추천 인기 모드 카드 4선 (원클릭 즉시 시작) -->
+        <div class="lobby-quick-section">
+          <div class="quick-header">
+            <span class="quick-title">🎮 빠른 모드 선택</span>
+            <button class="all-modes-link" onclick="openModeSelectModal()">전체 6개 모드 보기 ➔</button>
+          </div>
+
+          <div class="quick-mode-grid">
+            <div class="q-card featured" onclick="selectAndStartMode('special')">
+              <span class="q-badge">인기 추천 🔥</span>
+              <span class="q-icon">🌟</span>
+              <div class="q-info">
+                <strong>특수 젬 크러시</strong>
+                <span>3x3 폭탄 & 체인 번개 연쇄 (120초)</span>
+              </div>
+            </div>
+
+            <div class="q-card mega" onclick="selectAndStartMode('mega')">
+              <span class="q-badge new">NEW 1.5x 🌌</span>
+              <span class="q-icon">🪐</span>
+              <div class="q-info">
+                <strong>메가 버스트</strong>
+                <span>300타일 대형 맵 (180초)</span>
+              </div>
+            </div>
+
+            <div class="q-card" onclick="selectAndStartMode('arcade')">
+              <span class="q-icon">⚡</span>
+              <div class="q-info">
+                <strong>아케이드 피버</strong>
+                <span>6초 초신성 피버 연쇄 (120초)</span>
+              </div>
+            </div>
+
+            <div class="q-card" onclick="selectAndStartMode('zen')">
+              <span class="q-icon">🧘</span>
+              <div class="q-info">
+                <strong>젠 힐링 모드</strong>
+                <span>무제한 타임 & 되돌리기 지원</span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- 하단 보조 메뉴 링크 -->
+        <div class="lobby-footer-bar">
+          <button class="lobby-foot-btn" onclick="openHowToModal()">
+            <span>💡</span> 게임 룰 & 공략
+          </button>
+          <span class="foot-sep">•</span>
+          <button class="lobby-foot-btn" onclick="openLegalModal()">
+            <span>⚖️</span> 독립 창작 IP 컴플라이언스
+          </button>
+        </div>
+
       </div>
     </section>
 
-    <!-- [뷰 1] 메인 젬 퍼즐 게임 화면 -->
+    <!-- [뷰 1] 순수 퍼즐 스테이지 화면 (Zero-Clutter Game Scene) -->
     <section class="game-view" id="viewGame">
-      <div class="remake-container">
+      <div class="game-stage-container">
         
-        <!-- 게임 서브 모드 선택 -->
-        <div class="remake-submodes">
-          <button class="submode-btn active" id="submodeSpecial" onclick="setGameMode('special')">
-            🌟 특수 젬 크러시 (3x3폭탄)
-          </button>
-          <button class="submode-btn" id="submodeMega" onclick="setGameMode('mega')" style="background: rgba(147, 51, 234, 0.2); border-color: rgba(147, 51, 234, 0.4);">
-            🌌 메가 버스트 (300타일/1.5x)
-          </button>
-          <button class="submode-btn" id="submodeArcade" onclick="setGameMode('arcade')">
-            ⚡ 아케이드 피버 (120s)
-          </button>
-          <button class="submode-btn" id="submodeZen" onclick="setGameMode('zen')">
-            🧘 젠 / 힐링 모드 (무제한)
-          </button>
-          <button class="submode-btn" id="submodeClassic" onclick="setGameMode('classic')">
-            🎯 클래식 타임어택 (120s)
-          </button>
-          <button class="submode-btn" id="submodeMini" onclick="setGameMode('mini')">
-            🧩 미니 퀘스트 (60s / 15x10)
-          </button>
-        </div>
-
-        <!-- 피버 모드 안내 뱃지 배너 -->
-        <div id="feverGuideBanner" style="font-size: 0.82rem; color: #F472B6; background: rgba(244, 114, 182, 0.1); border: 1px solid rgba(244, 114, 182, 0.25); padding: 6px 14px; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
-          <span>🎆 <strong>[불꽃놀이 피버]</strong> 게이지 100% 충전 시 6초간 FEVER 발동! 모든 십자 보석이 초신성 불꽃놀이처럼 연쇄 폭발합니다.</span>
-        </div>
-
-        <!-- 게임 조작 툴바 -->
-        <div class="remake-toolbar">
-          <button class="tool-btn" onclick="switchMainTab('menu')">
-            🏠 메뉴
-          </button>
-          <button class="tool-btn" onclick="openModeSelectModal()">
-            🎮 모드 변경
-          </button>
-          <button class="tool-btn" onclick="openSettingsModal()">
-            ⚙️ 설정
-          </button>
-          <button class="tool-btn active" id="btnSmartGuide" onclick="toggleSmartGuide()">
-            🎯 조준선
-          </button>
-          <button class="tool-btn active" id="btnHoverPreview" onclick="toggleHoverPreview()">
-            ✨ 프리뷰
-          </button>
-          <button class="tool-btn" id="btnColorBlind" onclick="toggleColorBlind()">
-            👁️ 룬
-          </button>
-          <button class="tool-btn" id="btnHint" onclick="triggerHint()">
-            💡 힌트
-          </button>
-          <button class="tool-btn" id="btnShuffle" onclick="triggerShuffle()">
-            🔀 셔플
-          </button>
-          <button class="tool-btn" id="btnUndo" onclick="triggerUndo()" style="display: none;">
-            ↩️ 되돌리기
-          </button>
-          <button class="tool-btn action-btn" onclick="restartGame()">
-            🔄 재시작
-          </button>
-        </div>
-
-        <!-- 캔버스 영역 (2배 대형 타일 및 모바일 적응형 해상도 1260 x 880) -->
+        <!-- 캔버스 영역 (2배 대형 타일 및 1260 x 880 적응형 캔버스) -->
         <div class="canvas-wrapper">
           <canvas id="gameCanvas" width="1260" height="880"></canvas>
         </div>
 
-      </div>
-    </section>
-
-    <!-- [뷰 2] 게임 룰 및 고득점 팁 -->
-    <section class="game-view" id="viewHowTo">
-      <div class="report-container">
-        <h2>💡 《프리즘 크로스: 젬 버스트》 플레이 방법 & 공략 팁</h2>
-        
-        <h3>1. 기본 규칙 (Cross Match)</h3>
-        <p>보드의 <strong>비어 있는 칸</strong>을 클릭하면, 상·하·좌·우 4방향으로 가장 가까운 보석들을 탐색합니다. 그 중 <strong>2개 이상 같은 종류의 보석</strong>이 있으면 레이저 빔이 연결되며 보석들이 소거되고 점수를 획득합니다.</p>
-
-        <h3>2. 특수 보석 (Special Gems)</h3>
-        <ul>
-          <li><strong>💣 3x3 범위 폭탄 젬 (Area Bomb):</strong> 매칭 소거 시 폭탄 주변 3x3 영역(주변 8칸)의 모든 보석을 시원하게 날려버리는 범위 대폭발을 일으킵니다!</li>
-          <li><strong>⚡ 체인 라이트닝 젬 (Lightning Spark):</strong> 소거 시 주변 보석들로 눈부신 체인 번개(Lightning Arc)를 연결 발사하여 연쇄 감전 소거합니다.</li>
-          <li><strong>⏰ 타임 보너스 젬 (Time Plus):</strong> 매칭 시 남은 제한 시간을 즉시 +5초 연장해 줍니다.</li>
-        </ul>
-
-        <h3>3. 고득점 & 클리어 요령</h3>
-        <ul>
-          <li><strong>연속 콤보 (Combo):</strong> 3.5초 이내에 연속으로 매칭에 성공하면 콤보 배율이 상승하여 보너스 점수가 가산됩니다.</li>
-          <li><strong>피버 모드 (Fever Time):</strong> 아케이드 모드에서 콤보를 이어가며 게이지를 100% 충전하면 6초간 피버 타임이 발동합니다. 피버 중에는 보석의 색상이 달라도 십자 방향에 걸리는 모든 보석을 한 번에 쓸어 담을 수 있습니다!</li>
-          <li><strong>스마트 조준 가이드:</strong> 마우스를 올렸을 때 녹색 링과 보석 하이라이트가 나타나는 곳이 유효한 매칭 위치입니다. 헛클릭으로 인한 시간 감점을 완벽히 예방할 수 있습니다.</li>
-          <li><strong>젠(Zen) 모드:</strong> 시간에 쫓기지 않고 편안하게 두뇌 퍼즐을 즐기고 싶을 때는 젠 모드를 선택하세요. 무제한 시간과 힌트, 되돌리기(Undo)가 지원됩니다.</li>
-        </ul>
-
-        <div style="margin-top: 28px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
-          <button class="modal-btn secondary" onclick="switchMainTab('menu')" style="max-width: 200px;">
-            메인 메뉴로 이동 🏠
+        <!-- 하단 전용 인게임 파워업 액션 독 (Tactile Power-up Dock) -->
+        <div class="ingame-powerup-dock">
+          <button class="powerup-btn" id="btnHint" onclick="triggerHint()" title="힌트 (유효 매칭 위치 표시)">
+            <span class="p-icon">💡</span>
+            <span class="p-label">힌트 (Hint)</span>
           </button>
-          <button class="modal-btn primary" onclick="switchMainTab('game')" style="max-width: 240px;">
-            지금 보석 매칭하러 가기 💎
+
+          <button class="powerup-btn" id="btnShuffle" onclick="triggerShuffle()" title="보석 셔플 (보드 재배치)">
+            <span class="p-icon">🔀</span>
+            <span class="p-label">셔플 (Shuffle)</span>
+          </button>
+
+          <button class="powerup-btn zen-only-btn" id="btnUndo" onclick="triggerUndo()" title="한 수 되돌리기" style="display: none;">
+            <span class="p-icon">↩️</span>
+            <span class="p-label">되돌리기 (Undo)</span>
+          </button>
+
+          <button class="powerup-btn secondary-btn" onclick="restartGame()" title="현재 모드 재시작">
+            <span class="p-icon">🔄</span>
+            <span class="p-label">재시작 (Restart)</span>
+          </button>
+
+          <button class="powerup-btn pause-dock-btn" onclick="openPauseModal()" title="게임 일시정지">
+            <span class="p-icon">⏸️</span>
+            <span class="p-label">정지 (Pause)</span>
           </button>
         </div>
-      </div>
-    </section>
 
-    <!-- [뷰 3] 저작권 및 법적 컴플라이언스 정보 -->
-    <section class="game-view" id="viewLegal">
-      <div class="report-container">
-        <h2>⚖️ 상업적 배포를 위한 저작권 및 지식재산권(IP) 컴플라이언스</h2>
-        
-        <p>본 게임은 저작권법의 대원칙인 <strong>'아이디어와 표현의 이분법'</strong> 및 부정경쟁방지법, 상표법을 철저히 준수하여 상업적 출시 시 법적 분쟁이 발생하지 않도록 기획·설계된 <strong>100% 독립 창작 IP</strong>입니다.</p>
-
-        <h3>1. 법적 분쟁 방지 조치 내역</h3>
-        <table class="comparison-table">
-          <thead>
-            <tr>
-              <th>구분</th>
-              <th>법적 요구사항</th>
-              <th>프리즘 크로스 적용 완료 내역</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>상표권 (Title)</strong></td>
-              <td>원작 명칭(Color Tiles 등) 무단 사용 금지</td>
-              <td><strong>《Prism Cross: Gem Burst》</strong> 독자적 상표 브랜딩 구축</td>
-            </tr>
-            <tr>
-              <td><strong>그래픽 자산 (Art)</strong></td>
-              <td>원작 이미지 리소스 복제·도용 금지</td>
-              <td>단색 타일 대신 <strong>10종 프리즘 보석 컷팅 벡터 렌더링</strong> 자체 제작</td>
-            </tr>
-            <tr>
-              <td><strong>사운드 (Audio)</strong></td>
-              <td>원작 오디오 파일 무단 도용 금지</td>
-              <td><strong>Web Audio API 기반 100% 자체 신시사이저</strong> 젬 사운드트랙</td>
-            </tr>
-            <tr>
-              <td><strong>트레이드 드레스</strong></td>
-              <td>원작과 지나치게 유사한 외관 모방 금지</td>
-              <td>네온 사이버 다크 글래스모피즘 기반 차별화된 비주얼 아이덴티티 구축</td>
-            </tr>
-            <tr>
-              <td><strong>독창적 시스템</strong></td>
-              <td>단순 카피캣 방지 독자 기믹 추가</td>
-              <td><strong>피버 모드, 콤보 배율, 스마트 에임 가이드, 4대 서브 모드</strong> 개발</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3>2. 법적 근거 (아이디어와 표현의 이분법)</h3>
-        <p>법원 판례상 "빈 공간을 클릭하여 상하좌우 가장 가까운 같은 색 오브젝트를 제거한다"는 게임의 규칙(Game Mechanics)은 보호받지 못하는 '아이디어'의 영역에 속합니다. 반면 구체적인 명칭, 그래픽, 사운드, 코드, 시각적 표현은 '표현'의 영역으로 저작권의 보호를 받습니다. 본 작품은 모든 표현 요소를 100% 순수 자체 창작물로 제작하였으므로, 국내외 어떤 플랫폼(Steam, Google Play, App Store, 웹 포털)에서도 안전하게 서비스될 수 있습니다.</p>
-
-        <div style="margin-top: 20px; font-size: 0.8rem; color: #64748B; text-align: center;">
-          © 2026 Prism Cross: Gem Burst. All rights reserved. Independently designed and developed.
-        </div>
       </div>
     </section>
 
   </main>
 
-  <!-- 게임 모드 선택 모달 (Mode Select Modal) -->
+  <!-- [모달 1] 일시정지 모달 (Game Pause Modal) -->
+  <div class="modal-overlay" id="pauseModal">
+    <div class="modal-card pause-card">
+      <div class="modal-header">
+        <h2>⏸️ 게임 일시정지</h2>
+        <p id="pauseModeInfo" style="color: #38BDF8; font-size: 0.95rem; font-weight: 600; margin-top: 4px;">특수 젬 크러시</p>
+      </div>
+
+      <div class="pause-menu-actions">
+        <button class="modal-btn primary large-btn" onclick="closePauseModal()">
+          <span>▶️</span> 게임 계속하기 (Resume)
+        </button>
+        <button class="modal-btn secondary" onclick="restartGame(); closePauseModal();">
+          <span>🔄</span> 이 모드 다시 시작 (Restart)
+        </button>
+        <button class="modal-btn secondary" onclick="closePauseModal(); openModeSelectModal();">
+          <span>🎮</span> 다른 모드 선택 (Change Mode)
+        </button>
+        <button class="modal-btn secondary" onclick="openSettingsModal()">
+          <span>⚙️</span> 환경 설정 (Options)
+        </button>
+        <button class="modal-btn secondary" onclick="openHowToModal()">
+          <span>💡</span> 게임 룰 & 공략 가이드
+        </button>
+        <button class="modal-btn danger" onclick="closePauseModal(); goToLobby();">
+          <span>🏠</span> 메인 메뉴로 나가기 (Title Lobby)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [모달 2] 게임 모드 선택 모달 (Mode Select Modal) -->
   <div class="modal-overlay" id="modeSelectModal">
     <div class="modal-card modal-large">
       <div class="modal-header">
@@ -311,7 +274,7 @@
     </div>
   </div>
 
-  <!-- 환경 설정 (옵션) 모달 (Settings Modal) -->
+  <!-- [모달 3] 환경 설정 모달 (Settings Modal) -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card settings-card">
       <div class="modal-header">
@@ -386,7 +349,100 @@
     </div>
   </div>
 
-  <!-- 게임 결과 통계 모달 -->
+  <!-- [모달 4] 게임 룰 및 공략 모달 (How to Play Modal) -->
+  <div class="modal-overlay" id="howToModal">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h2>💡 게임 룰 & 플레이 공략 가이드</h2>
+        <p style="color: #94A3B8; font-size: 0.9rem;">프리즘 크로스의 핵심 규칙과 고득점 팁</p>
+      </div>
+
+      <div class="modal-scroll-body report-container" style="border: none; background: transparent; padding: 0;">
+        <h3>1. 기본 규칙 (Cross Match)</h3>
+        <p>보드의 <strong>비어 있는 칸</strong>을 터치/클릭하면, 상·하·좌·우 4방향으로 가장 가까운 보석들을 탐색합니다. 그 중 <strong>2개 이상 같은 종류의 보석</strong>이 있으면 레이저 빔이 연결되며 보석들이 소거되고 점수를 획득합니다.</p>
+
+        <h3>2. 특수 보석 (Special Gems)</h3>
+        <ul>
+          <li><strong>💣 3x3 범위 폭탄 젬 (Area Bomb):</strong> 매칭 소거 시 폭탄 주변 3x3 영역(주변 8칸)의 모든 보석을 시원하게 날려버리는 범위 대폭발을 일으킵니다!</li>
+          <li><strong>⚡ 체인 라이트닝 젬 (Lightning Spark):</strong> 소거 시 주변 보석들로 눈부신 체인 번개(Lightning Arc)를 연결 발사하여 연쇄 감전 소거합니다.</li>
+          <li><strong>⏰ 타임 보너스 젬 (Time Plus):</strong> 매칭 시 남은 제한 시간을 즉시 +5초 연장해 줍니다.</li>
+        </ul>
+
+        <h3>3. 고득점 & 클리어 요령</h3>
+        <ul>
+          <li><strong>연속 콤보 (Combo):</strong> 3.5초 이내에 연속으로 매칭에 성공하면 콤보 배율이 상승하여 보너스 점수가 가산됩니다.</li>
+          <li><strong>피버 모드 (Fever Time):</strong> 아케이드 및 메가 버스트 모드에서 콤보를 이어가며 게이지를 100% 충전하면 6초간 피버 타임이 발동합니다. 피버 중에는 보석의 색상이 달라도 십자 방향에 걸리는 모든 보석을 한 번에 쓸어 담을 수 있습니다!</li>
+          <li><strong>스마트 조준 가이드:</strong> 마우스를 올리거나 터치했을 때 레이저 링과 보석 하이라이트가 나타나는 곳이 유효한 매칭 위치입니다.</li>
+          <li><strong>젠(Zen) 모드:</strong> 시간에 쫓기지 않고 편안하게 두뇌 퍼즐을 즐기고 싶을 때는 젠 모드를 선택하세요. 무제한 시간과 힌트, 되돌리기(Undo)가 지원됩니다.</li>
+        </ul>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 24px;">
+        <button class="modal-btn primary" onclick="closeHowToModal()">확인 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [모달 5] 저작권 및 독립 창작 IP 모달 (Legal Modal) -->
+  <div class="modal-overlay" id="legalModal">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h2>⚖️ 상업적 배포를 위한 저작권 및 독립 창작 IP 컴플라이언스</h2>
+        <p style="color: #94A3B8; font-size: 0.9rem;">아이디어와 표현의 이분법 준수 내역</p>
+      </div>
+
+      <div class="modal-scroll-body report-container" style="border: none; background: transparent; padding: 0;">
+        <p>본 게임은 저작권법의 대원칙인 <strong>'아이디어와 표현의 이분법'</strong> 및 부정경쟁방지법, 상표법을 철저히 준수하여 상업적 출시 시 법적 분쟁이 발생하지 않도록 기획·설계된 <strong>100% 독립 창작 IP</strong>입니다.</p>
+
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>구분</th>
+              <th>법적 요구사항</th>
+              <th>프리즘 크로스 적용 완료 내역</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>상표권 (Title)</strong></td>
+              <td>원작 명칭 무단 사용 금지</td>
+              <td><strong>《Prism Cross: Gem Burst》</strong> 독자적 상표 브랜딩 구축</td>
+            </tr>
+            <tr>
+              <td><strong>그래픽 자산 (Art)</strong></td>
+              <td>원작 이미지 리소스 복제·도용 금지</td>
+              <td>단색 타일 대신 <strong>10종 3D 엠보스 쉐이딩 타일</strong> 자체 벡터 렌더링</td>
+            </tr>
+            <tr>
+              <td><strong>사운드 (Audio)</strong></td>
+              <td>원작 오디오 파일 무단 도용 금지</td>
+              <td><strong>Web Audio API 기반 100% 실시간 신시사이저</strong> 앰비언트 사운드</td>
+            </tr>
+            <tr>
+              <td><strong>트레이드 드레스</strong></td>
+              <td>외관 모방 금지</td>
+              <td>코스믹 네온 다크 글래스모피즘 기반 차별화된 비주얼 아이덴티티 구축</td>
+            </tr>
+            <tr>
+              <td><strong>독창적 시스템</strong></td>
+              <td>단순 카피캣 방지 독자 기믹 추가</td>
+              <td><strong>피버 모드, 콤보 배율, 스마트 에임 가이드, 메가 버스트(300타일)</strong> 등 독자 개발</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 20px; font-size: 0.8rem; color: #64748B; text-align: center;">
+          © 2026 Prism Cross: Gem Burst. All rights reserved. Independently designed and developed.
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 24px;">
+        <button class="modal-btn primary" onclick="closeLegalModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [모달 6] 게임 결과 통계 모달 (Result Modal) -->
   <div class="modal-overlay" id="resultModal">
     <div class="modal-card">
       <div class="modal-header" id="modalHeader">
@@ -418,7 +474,7 @@
       </div>
 
       <div class="modal-actions">
-        <button class="modal-btn secondary" onclick="closeModal()">닫기</button>
+        <button class="modal-btn secondary" onclick="closeModal(); goToLobby();">메인 로비 🏠</button>
         <button class="modal-btn primary" onclick="restartGame(); closeModal();">다시 플레이 🔄</button>
       </div>
     </div>
